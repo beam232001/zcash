@@ -13,6 +13,7 @@
 // https://www.internetsociety.org/sites/default/files/blogs-media/equihash-asymmetric-proof-of-work-based-generalized-birthday-problem.pdf
 
 #include "crypto/equihash.h"
+#include "compat/endian.h"
 #include "util.h"
 
 #include <algorithm>
