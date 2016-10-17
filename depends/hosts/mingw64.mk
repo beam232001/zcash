@@ -1,3 +1,12 @@
+mingw64_CC = gcc.exe
+mingw64_CXX = g++.exe
+mingw64_AR = ar.exe
+mingw64_RANLIB = ranlib.exe
+mingw64_STRIP = strip.exe
+mingw64_NM = nm.exe
+mingw64_SHA256SUM = sha256sum.exe
+
+
 mingw64_CFLAGS=-pipe
 mingw64_CXXFLAGS=$(mingw64_CFLAGS)
 

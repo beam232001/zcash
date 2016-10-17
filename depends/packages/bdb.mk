@@ -12,8 +12,11 @@ $(package)_config_opts_mingw64=--enable-mingw
 $(package)_config_opts_linux=--with-pic
 endef
 
+TMPVAR = $($(package)_autoconf)
+VAR = $(filter-out --host=x86_64-pc-mingw64, $(TMPVAR))
+
 define $(package)_config_cmds
-  ../dist/$($(package)_autoconf)
+  ../dist/$(VAR)
 endef
 
 define $(package)_preprocess_cmds

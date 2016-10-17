@@ -1,13 +1,11 @@
-build_mingw64_CC = gcc
-build_mingw64_CXX = g++
-build_mingw64_AR = ar
-build_mingw64_RANLIB = ranlib
-build_mingw64_STRIP = strip
-build_mingw64_NM = nm
-build_mingw64_OTOOL = otool
-build_mingw64_INSTALL_NAME_TOOL = install_name_tool
-build_mingw64_SHA256SUM = sha256sum
-build_mingw64_DOWNLOAD = wget --timeout=$(DOWNLOAD_CONNECT_TIMEOUT) --tries=$(DOWNLOAD_RETRIES) -nv -O
+build_mingw64_CC = gcc.exe
+build_mingw64_CXX = g++.exe
+build_mingw64_AR = ar.exe
+build_mingw64_RANLIB = ranlib.exe
+build_mingw64_STRIP = strip.exe
+build_mingw64_NM = nm.exe
+build_mingw64_SHA256SUM = sha256sum.exe
+build_mingw64_DOWNLOAD = wget.exe --timeout=$(DOWNLOAD_CONNECT_TIMEOUT) --tries=$(DOWNLOAD_RETRIES) -nv -O
 
 define add_build_tool_func
 build_$(build_os)_$1 ?= $$(default_build_$1)
