@@ -41,15 +41,15 @@ fi
 # BUG: parameterize the platform/host directory:
 PREFIX="$(pwd)/depends/$HOST"
 
-make HOST=$HOST "$@" -C ./depends/ V=1 NO_QT=1
-DBINC="${PREFIX}/include/db"
-mkdir -p $DBINC
-cp ${PREFIX}/include/db*h $DBINC
+#make HOST=$HOST "$@" -C ./depends/ V=1 NO_QT=1
+#DBINC="${PREFIX}/include/bdb5.3"
+#mkdir -p $DBINC
+#cp ${PREFIX}/include/db*h $DBINC
 
-./autogen.sh
-CPPFLAGS="-I{$PREFIX}/include" LDFLAGS="-L{$PREFIX}/lib" \
-CXXFLAGS="-I${PREFIX}/include -fwrapv -fno-strict-aliasing -Werror -g" \
-./configure --prefix="${PREFIX}"  --with-gui=no "$HARDENING_ARG" "$LCOV_ARG"
+#./autogen.sh
+CPPFLAGS="-I$PREFIX/include" LDFLAGS="-L$PREFIX/lib" \
+CXXFLAGS="-I$PREFIX/include -fwrapv -fno-strict-aliasing -Werror -g" \
+./configure --prefix="${PREFIX}"  --with-gui=no --with-boost="$PREFIX" "$HARDENING_ARG" "$LCOV_ARG"
 
 
 
