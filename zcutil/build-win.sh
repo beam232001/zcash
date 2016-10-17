@@ -1,5 +1,10 @@
 #!/bin/bash
-HOST="x86_64-w64-mingw32"
+
+# sanitize path because the one we get from Windows is garbage with spaces in it and
+# the makefiles in depends don't quote the path when they hand it to bash for ./configure
+export PATH=/mingw64/bin/:/usr/local/bin:/usr/bin:/bin:/usr/bin/site_perl:/usr/bin/vendor_perl:/usr/bin/core_perl
+
+HOST="x86_64-pc-mingw64"
 
 set -eu -o pipefail
 
@@ -38,5 +43,5 @@ PREFIX="$(pwd)/depends/$HOST/"
 
 make HOST=$HOST "$@" -C ./depends/ V=1 NO_QT=1
 ./autogen.sh
-./configure --prefix="${PREFIX}" --host=$HOST --with-gui=no "$HARDENING_ARG" "$LCOV_ARG" CXXFLAGS='-fwrapv -fno-strict-aliasing -Werror -g'
+./configure --prefix="${PREFIX}"  --with-gui=no "$HARDENING_ARG" "$LCOV_ARG" CXXFLAGS='-fwrapv -fno-strict-aliasing -Werror -g'
 make "$@" V=1
