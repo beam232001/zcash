@@ -12,7 +12,7 @@ $(package)_config_opts=--layout=tagged --build-type=complete --user-config=user-
 $(package)_config_opts+=threading=multi link=static -sNO_BZIP2=1 -sNO_ZLIB=1
 $(package)_config_opts_linux=threadapi=pthread runtime-link=shared
 $(package)_config_opts_darwin=--toolset=darwin-4.2.1 runtime-link=shared
-$(package)_config_opts_mingw32=binary-format=pe target-os=windows threadapi=win32 runtime-link=static
+$(package)_config_opts_mingw32=binary-format=pe target-os=windows threadapi=pthread runtime-link=static
 $(package)_config_opts_x86_64_mingw32=address-model=64
 $(package)_config_opts_i686_mingw32=address-model=32
 $(package)_config_opts_i686_linux=address-model=32 architecture=x86
@@ -31,13 +31,13 @@ define $(package)_preprocess_cmds
 endef
 
 define $(package)_config_cmds
-  ./bootstrap.sh --without-icu --with-libraries=$(boost_config_libraries)
+  PTW32_INCLUDE=/usr/x86_64-w64-mingw32/include PTW32_LIB=/usr/x86_64-w64-mingw32/lib  ./bootstrap.sh --without-icu --with-libraries=$(boost_config_libraries)
 endef
 
 define $(package)_build_cmds
-  ./b2 -d2 -j2 -d1 --prefix=$($(package)_staging_prefix_dir) $($(package)_config_opts) stage
+  PTW32_INCLUDE=/usr/x86_64-w64-mingw32/include PTW32_LIB=/usr/x86_64-w64-mingw32/lib  ./b2 -d2 -j2 -d1 --prefix=$($(package)_staging_prefix_dir) $($(package)_config_opts) stage
 endef
 
 define $(package)_stage_cmds
-  ./b2 -d0 -j4 --prefix=$($(package)_staging_prefix_dir) $($(package)_config_opts) install
+  PTW32_INCLUDE=/usr/x86_64-w64-mingw32/include PTW32_LIB=/usr/x86_64-w64-mingw32/lib  ./b2 -d0 -j4 --prefix=$($(package)_staging_prefix_dir) $($(package)_config_opts) install
 endef
