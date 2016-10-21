@@ -10,7 +10,7 @@ $(package)_download_file=release-$($(package)_version).tar.gz
 $(package)_sha256_hash=3f20b6acb37e5a98e8c4518165711e3e35d47deb6cdb5a4dd4566563b5efd232
 
 define $(package)_build_cmds
-  CC=gcc-5 CXX=g++-5 AR=gar $(MAKE) -C make GTEST_DIR='$(host_prefix)' CXXFLAGS='-fPIC' gmock-all.o
+  CC=gcc-5 CXX=g++-5 AR=ar $(MAKE) -C make GTEST_DIR='$(host_prefix)' CXXFLAGS='-fPIC' gmock-all.o
 endef
 
 
