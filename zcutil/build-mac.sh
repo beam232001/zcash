@@ -1,13 +1,12 @@
 #!/bin/bash
 export CC=gcc-5
 export CXX=g++-5
+export LIBTOOL=libtool
 export AR=ar
 export RANLIB=ranlib
 export STRIP=strip
-export LIBTOOL=libtool
 export OTOOL=otool
 export NM=nm
-export INSTALL=install
 
 set -eu -o pipefail
 
