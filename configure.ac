@@ -117,7 +117,7 @@ AC_ARG_ENABLE([hardening],
   [AS_HELP_STRING([--enable-hardening],
   [attempt to harden the resulting executables (default is yes)])],
   [use_hardening=$enableval],
-  [use_hardening=yes])
+  [use_hardening=no])
 
 AC_ARG_ENABLE([reduce-exports],
   [AS_HELP_STRING([--enable-reduce-exports],
@@ -707,7 +707,7 @@ AC_CHECK_LIB([gmpxx],[main],GMPXX_LIBS=-lgmpxx, [AC_MSG_ERROR(libgmpxx missing)]
 # libsnark header layout is broken unless cpp's -I is passed with the
 # libsnark directory, so for now we use this hideous workaround:
 echo 'Hunting for libsnark include directory...'
-#[LIBSNARK_INCDIR="$(echo "$CPPFLAGS" | sed 's,^.*-I\([^ ]*/include\).*$,\1/libsnark,')"]
+[LIBSNARK_INCDIR="$(echo "$CPPFLAGS" | sed 's,^.*-I\([^ ]*/include\).*$,\1/libsnark,')"]
 if test -d "$LIBSNARK_INCDIR"; then
    echo "Found libsnark include directory: $LIBSNARK_INCDIR"
 else
@@ -720,7 +720,7 @@ CPPFLAGS="-I$LIBSNARK_INCDIR $CPPFLAGS"
 AC_CHECK_HEADER([libsnark/gadgetlib1/gadget.hpp],,AC_MSG_ERROR(libsnark headers missing))
 AC_CHECK_LIB([snark],[main],LIBSNARK_LIBS=-lsnark, [AC_MSG_ERROR(libsnark missing)], [-lgmpxx])
 
-LIBZCASH_LIBS="-lsnark -lgmp -lgmpxx -lboost_system-mt -lcrypto -lsodium -fopenmp"
+LIBZCASH_LIBS="-lsnark -lgmp -lgmpxx -lboost_system-mt -lcrypto -lsodium"
 
 CXXFLAGS_TEMP="$CXXFLAGS"
 LIBS_TEMP="$LIBS"

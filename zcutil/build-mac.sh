@@ -45,6 +45,8 @@ PREFIX="$(pwd)/depends/x86_64-apple-darwin15.6.0/"
 
 make "$@" -C ./depends/ V=1 NO_QT=1
 ./autogen.sh
-./configure --prefix="${PREFIX}" --with-gui=no "$HARDENING_ARG" "$LCOV_ARG" CXXFLAGS='-fwrapv -fno-strict-aliasing -Werror -g' \
-  --with-boost=/Users/djm/zcash/depends/x86_64-apple-darwin15.6.0
+CPPFLAGS="-I$PREFIX/include" LDFLAGS="-L$PREFIX/lib" \
+CXXFLAGS='-I/usr/local/Cellar/gcc5/5.4.0/include/c++/5.4.0 -I$PREFIX/include -fwrapv -fno-strict-aliasing -Werror -g -Wl,-undefined -Wl,dynamic_lookup' \
+./configure --prefix="${PREFIX}" --with-gui=no "$HARDENING_ARG" "$LCOV_ARG" 
+
 make "$@" V=1
