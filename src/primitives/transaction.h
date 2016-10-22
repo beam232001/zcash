@@ -7,6 +7,7 @@
 #define BITCOIN_PRIMITIVES_TRANSACTION_H
 
 #include "amount.h"
+#include "random.h"
 #include "script/script.h"
 #include "serialize.h"
 #include "uint256.h"
@@ -76,6 +77,20 @@ public:
             CAmount vpub_old,
             CAmount vpub_new,
             bool computeProof = true // Set to false in some tests
+    );
+
+    static JSDescription Randomized(
+            ZCJoinSplit& params,
+            const uint256& pubKeyHash,
+            const uint256& rt,
+            boost::array<libzcash::JSInput, ZC_NUM_JS_INPUTS>& inputs,
+            boost::array<libzcash::JSOutput, ZC_NUM_JS_OUTPUTS>& outputs,
+            boost::array<size_t, ZC_NUM_JS_INPUTS>& inputMap,
+            boost::array<size_t, ZC_NUM_JS_OUTPUTS>& outputMap,
+            CAmount vpub_old,
+            CAmount vpub_new,
+            bool computeProof = true, // Set to false in some tests
+            std::function<int(int)> gen = GetRandInt
     );
 
     // Verifies that the JoinSplit proof is correct.
@@ -294,7 +309,9 @@ private:
 public:
     typedef boost::array<unsigned char, 64> joinsplit_sig_t;
 
-    static const int32_t CURRENT_VERSION=1;
+    // Transactions that include a list of JoinSplits are version 2.
+    static const int32_t MIN_CURRENT_VERSION = 1;
+    static const int32_t MAX_CURRENT_VERSION = 2;
 
     // The local variables are made const to prevent unintended modification
     // without updating the cached hash value. However, CTransaction is not
