@@ -11,6 +11,7 @@
 #include "script/script.h"
 #include "serialize.h"
 #include "uint256.h"
+#include "consensus/consensus.h"
 
 #include <boost/array.hpp>
 
@@ -53,7 +54,7 @@ public:
     // These contain trapdoors, values and other information
     // that the recipient needs, including a memo field. It
     // is encrypted using the scheme implemented in crypto/NoteEncryption.cpp
-    boost::array<ZCNoteEncryption::Ciphertext, ZC_NUM_JS_OUTPUTS> ciphertexts;
+    boost::array<ZCNoteEncryption::Ciphertext, ZC_NUM_JS_OUTPUTS> ciphertexts = {{ {{0}} }};
 
     // Random seed
     uint256 randomSeed;
@@ -313,6 +314,9 @@ public:
     static const int32_t MIN_CURRENT_VERSION = 1;
     static const int32_t MAX_CURRENT_VERSION = 2;
 
+    static_assert(MIN_CURRENT_VERSION >= MIN_TX_VERSION,
+                  "standard rule for tx version should be consistent with network rule");
+
     // The local variables are made const to prevent unintended modification
     // without updating the cached hash value. However, CTransaction is not
     // actually immutable; deserialization and assignment are implemented,
@@ -324,7 +328,7 @@ public:
     const uint32_t nLockTime;
     const std::vector<JSDescription> vjoinsplit;
     const uint256 joinSplitPubKey;
-    const joinsplit_sig_t joinSplitSig;
+    const joinsplit_sig_t joinSplitSig = {{0}};
 
     /** Construct a CTransaction that qualifies as IsNull() */
     CTransaction();
@@ -403,7 +407,7 @@ struct CMutableTransaction
     uint32_t nLockTime;
     std::vector<JSDescription> vjoinsplit;
     uint256 joinSplitPubKey;
-    CTransaction::joinsplit_sig_t joinSplitSig;
+    CTransaction::joinsplit_sig_t joinSplitSig = {{0}};
 
     CMutableTransaction();
     CMutableTransaction(const CTransaction& tx);
