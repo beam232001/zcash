@@ -28,14 +28,17 @@ Also, the following commands use the `ZCASH_RELEASE_PREV` bash variable for the
 previous release:
 
     $ ZCASH_RELEASE_PREV=1.0.0-beta1
-    
-## B. create a new release branch / github PR
-### B1. update (commit) version in sources
+
+## B. Create a new release branch / github PR
+### B1. Update (commit) version in sources
 
     doc/README.md
     src/clientversion.h
     configure.ac
-    
+    contrib/DEBIAN/control
+    contrib/gitian-descriptors/gitian-linux.yml
+
+
 In `configure.ac` and `clientversion.h`:
 
 - Increment `CLIENT_VERSION_BUILD` according to the following schema:
@@ -49,20 +52,30 @@ In `configure.ac` and `clientversion.h`:
 
 - Change `CLIENT_VERSION_IS_RELEASE` to false while Zcash is in beta-test phase.
 
-### B2. write release notes
+### B2. Write release notes
 
 git shortlog helps a lot, for example:
 
     $ git shortlog --no-merges v${ZCASH_RELEASE_PREV}..HEAD \
         > ./doc/release-notes/release-notes-${ZCASH_RELEASE}.md
 
-### B3. change the network magics
+Update the Debian package changelog:
+
+    export DEBVERSION="${ZCASH_RELEASE}"
+    export DEBEMAIL="${DEBEMAIL:-team@z.cash}"
+    export DEBFULLNAME="${DEBFULLNAME:-Zcash Company}"
+
+    dch -v $DEBVERSION -D jessie -c contrib/DEBIAN/changelog
+
+(`dch` comes from the devscripts package.)
+
+### B3. Change the network magics
 
 If this release breaks backwards compatibility, change the network magic
 numbers. Set the four `pchMessageStart` in `CTestNetParams` in `chainparams.cpp`
 to random values.
-        
-### B4. merge the previous changes
+
+### B4. Merge the previous changes
 
 Do the normal pull-request, review, testing process for this release PR.
 
@@ -76,17 +89,15 @@ https://ci.z.cash/builders/depends-sources
 
 Run `./fetch-params.sh`.
 
-## D. make tags / release-branch for the newly merged result
+## D. Make tag for the newly merged result
 
-In this example, we ensure zc.v0.11.2.latest is up to date with the
+In this example, we ensure master is up to date with the
 previous merged PR, then:
 
-    $ git tag v${ZCASH_RELEASE}
-    $ git branch zc.v${ZCASH_RELEASE}
+    $ git tag -s v${ZCASH_RELEASE}
     $ git push origin v${ZCASH_RELEASE}
-    $ git push origin zc.v${ZCASH_RELEASE}
 
-## E. deploy testnet
+## E. Deploy testnet
 
 Notify the Zcash DevOps engineer/sysadmin that the release has been tagged. They update some variables in the company's automation code and then run an Ansible playbook, which:
 
@@ -97,17 +108,20 @@ Notify the Zcash DevOps engineer/sysadmin that the release has been tagged. They
 
 Then, verify that nodes can connect to the testnet server, and update the guide on the wiki to ensure the correct hostname is listed in the recommended zcash.conf.
 
-## F. publish the release announcement (blog, zcash-dev, slack)
-## G. celebrate
+## F. Update the Beta Guide
+## G. Publish the release announcement (blog, zcash-dev, slack)
+## H. Make and deploy deterministic builds
+
+- Run the [Gitian deterministic build environment](https://github.com/zcash/zcash-gitian)
+- Compare the uploaded [build manifests on gitian.sigs](https://github.com/zcash/gitian.sigs)
+- If all is well, the DevOps engineer will build the Debian packages and update the
+  [apt.z.cash package repository](https://apt.z.cash).
+
+## I. Celebrate
+
 ## missing steps
 Zcash still needs:
 
-* deterministic or reproducible builds
-
-* signed git tags
-
 * thorough pre-release testing (presumably more thorough than standard PR tests)
 
-* release deployment steps (eg: updating build-depends mirror, deploying testnet, etc...)
-
-* proper Zcash-specific versions and names in software and documentation.
+* automated release deployment (e.g.: updating build-depends mirror, deploying testnet, etc...)

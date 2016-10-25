@@ -11,14 +11,39 @@
 #include "zcash/Note.hpp"
 #include "zcash/NoteEncryption.hpp"
 
-using ::testing::_;
+#include <boost/filesystem.hpp>
+
 using ::testing::Return;
 
-ZCJoinSplit* params = ZCJoinSplit::Unopened();
+extern ZCJoinSplit* params;
+
+ACTION(ThrowLogicError) {
+    throw std::logic_error("Boom");
+}
+
+class MockWalletDB {
+public:
+    MOCK_METHOD0(TxnBegin, bool());
+    MOCK_METHOD0(TxnCommit, bool());
+    MOCK_METHOD0(TxnAbort, bool());
+
+    MOCK_METHOD2(WriteTx, bool(uint256 hash, const CWalletTx& wtx));
+    MOCK_METHOD1(WriteWitnessCacheSize, bool(int64_t nWitnessCacheSize));
+};
+
+template void CWallet::WriteWitnessCache<MockWalletDB>(MockWalletDB& walletdb);
 
 class TestWallet : public CWallet {
 public:
     TestWallet() : CWallet() { }
+
+    bool EncryptKeys(CKeyingMaterial& vMasterKeyIn) {
+        return CCryptoKeyStore::EncryptKeys(vMasterKeyIn);
+    }
+
+    bool Unlock(const CKeyingMaterial& vMasterKeyIn) {
+        return CCryptoKeyStore::Unlock(vMasterKeyIn);
+    }
 
     void IncrementNoteWitnesses(const CBlockIndex* pindex,
                                 const CBlock* pblock,
@@ -27,6 +52,9 @@ public:
     }
     void DecrementNoteWitnesses() {
         CWallet::DecrementNoteWitnesses();
+    }
+    void WriteWitnessCache(MockWalletDB& walletdb) {
+        CWallet::WriteWitnessCache(walletdb);
     }
     bool UpdatedNoteData(const CWalletTx& wtxIn, CWalletTx& wtx) {
         return CWallet::UpdatedNoteData(wtxIn, wtx);
@@ -150,6 +178,13 @@ CWalletTx GetValidSpend(const libzcash::SpendingKey& sk,
     CTransaction tx {mtx};
     CWalletTx wtx {NULL, tx};
     return wtx;
+}
+
+TEST(wallet_tests, setup_datadir_location_run_as_first_test) {
+    // Get temporary and unique path for file.
+    boost::filesystem::path pathTemp = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path();
+    boost::filesystem::create_directories(pathTemp);
+    mapArgs["-datadir"] = pathTemp.string();
 }
 
 TEST(wallet_tests, note_data_serialisation) {
@@ -364,11 +399,71 @@ TEST(wallet_tests, set_invalid_note_addrs_in_cwallettx) {
     EXPECT_THROW(wtx.SetNoteData(noteData), std::logic_error);
 }
 
-TEST(wallet_tests, find_note_in_tx) {
+TEST(wallet_tests, GetNoteNullifier) {
     CWallet wallet;
 
     auto sk = libzcash::SpendingKey::random();
+    auto address = sk.address();
+    auto dec = ZCNoteDecryption(sk.viewing_key());
+
+    auto wtx = GetValidReceive(sk, 10, true);
+    auto note = GetNote(sk, wtx, 0, 1);
+    auto nullifier = note.nullifier(sk);
+
+    auto hSig = wtx.vjoinsplit[0].h_sig(
+        *params, wtx.joinSplitPubKey);
+
+    auto ret = wallet.GetNoteNullifier(
+        wtx.vjoinsplit[0],
+        address,
+        dec,
+        hSig, 1);
+    EXPECT_NE(nullifier, ret);
+
     wallet.AddSpendingKey(sk);
+
+    ret = wallet.GetNoteNullifier(
+        wtx.vjoinsplit[0],
+        address,
+        dec,
+        hSig, 1);
+    EXPECT_EQ(nullifier, ret);
+}
+
+TEST(wallet_tests, FindMyNotes) {
+    CWallet wallet;
+
+    auto sk = libzcash::SpendingKey::random();
+    auto sk2 = libzcash::SpendingKey::random();
+    wallet.AddSpendingKey(sk2);
+
+    auto wtx = GetValidReceive(sk, 10, true);
+    auto note = GetNote(sk, wtx, 0, 1);
+    auto nullifier = note.nullifier(sk);
+
+    auto noteMap = wallet.FindMyNotes(wtx);
+    EXPECT_EQ(0, noteMap.size());
+
+    wallet.AddSpendingKey(sk);
+
+    noteMap = wallet.FindMyNotes(wtx);
+    EXPECT_EQ(2, noteMap.size());
+
+    JSOutPoint jsoutpt {wtx.GetHash(), 0, 1};
+    CNoteData nd {sk.address(), nullifier};
+    EXPECT_EQ(1, noteMap.count(jsoutpt));
+    EXPECT_EQ(nd, noteMap[jsoutpt]);
+}
+
+TEST(wallet_tests, FindMyNotesInEncryptedWallet) {
+    TestWallet wallet;
+    uint256 r {GetRandHash()};
+    CKeyingMaterial vMasterKey (r.begin(), r.end());
+
+    auto sk = libzcash::SpendingKey::random();
+    wallet.AddSpendingKey(sk);
+
+    ASSERT_TRUE(wallet.EncryptKeys(vMasterKey));
 
     auto wtx = GetValidReceive(sk, 10, true);
     auto note = GetNote(sk, wtx, 0, 1);
@@ -379,6 +474,13 @@ TEST(wallet_tests, find_note_in_tx) {
 
     JSOutPoint jsoutpt {wtx.GetHash(), 0, 1};
     CNoteData nd {sk.address(), nullifier};
+    EXPECT_EQ(1, noteMap.count(jsoutpt));
+    EXPECT_NE(nd, noteMap[jsoutpt]);
+
+    ASSERT_TRUE(wallet.Unlock(vMasterKey));
+
+    noteMap = wallet.FindMyNotes(wtx);
+    EXPECT_EQ(2, noteMap.size());
     EXPECT_EQ(1, noteMap.count(jsoutpt));
     EXPECT_EQ(nd, noteMap[jsoutpt]);
 }
@@ -545,8 +647,9 @@ TEST(wallet_tests, cached_witnesses_empty_chain) {
 
     CBlock block;
     block.vtx.push_back(wtx);
+    CBlockIndex index(block);
     ZCIncrementalMerkleTree tree;
-    wallet.IncrementNoteWitnesses(NULL, &block, tree);
+    wallet.IncrementNoteWitnesses(&index, &block, tree);
     witnesses.clear();
     wallet.GetNoteWitnesses(notes, witnesses, anchor);
     EXPECT_TRUE((bool) witnesses[0]);
@@ -584,7 +687,9 @@ TEST(wallet_tests, cached_witnesses_chain_tip) {
 
         // First block (case tested in _empty_chain)
         block1.vtx.push_back(wtx);
-        wallet.IncrementNoteWitnesses(NULL, &block1, tree);
+        CBlockIndex index1(block1);
+        index1.nHeight = 1;
+        wallet.IncrementNoteWitnesses(&index1, &block1, tree);
         // Called to fetch anchor
         wallet.GetNoteWitnesses(notes, witnesses, anchor1);
     }
@@ -613,8 +718,10 @@ TEST(wallet_tests, cached_witnesses_chain_tip) {
         CBlock block2;
         block2.hashPrevBlock = block1.GetHash();
         block2.vtx.push_back(wtx);
+        CBlockIndex index2(block2);
+        index2.nHeight = 2;
         ZCIncrementalMerkleTree tree2 {tree};
-        wallet.IncrementNoteWitnesses(NULL, &block2, tree2);
+        wallet.IncrementNoteWitnesses(&index2, &block2, tree2);
         witnesses.clear();
         wallet.GetNoteWitnesses(notes, witnesses, anchor2);
         EXPECT_TRUE((bool) witnesses[0]);
@@ -631,11 +738,19 @@ TEST(wallet_tests, cached_witnesses_chain_tip) {
 
         // Re-incrementing with the same block should give the same result
         uint256 anchor4;
-        wallet.IncrementNoteWitnesses(NULL, &block2, tree);
+        wallet.IncrementNoteWitnesses(&index2, &block2, tree);
         witnesses.clear();
         wallet.GetNoteWitnesses(notes, witnesses, anchor4);
         EXPECT_TRUE((bool) witnesses[0]);
         EXPECT_EQ(anchor2, anchor4);
+
+        // Incrementing with the same block again should not change the cache
+        uint256 anchor5;
+        wallet.IncrementNoteWitnesses(&index2, &block2, tree);
+        std::vector<boost::optional<ZCIncrementalWitness>> witnesses5;
+        wallet.GetNoteWitnesses(notes, witnesses5, anchor5);
+        EXPECT_EQ(witnesses, witnesses5);
+        EXPECT_EQ(anchor4, anchor5);
     }
 }
 
@@ -677,6 +792,101 @@ TEST(wallet_tests, ClearNoteWitnessCache) {
     wallet.GetNoteWitnesses(notes, witnesses, anchor2);
     EXPECT_FALSE((bool) witnesses[0]);
     EXPECT_FALSE((bool) witnesses[1]);
+}
+
+TEST(wallet_tests, WriteWitnessCache) {
+    TestWallet wallet;
+    MockWalletDB walletdb;
+
+    auto sk = libzcash::SpendingKey::random();
+    wallet.AddSpendingKey(sk);
+
+    auto wtx = GetValidReceive(sk, 10, true);
+    wallet.AddToWallet(wtx, true, NULL);
+
+    // TxnBegin fails
+    EXPECT_CALL(walletdb, TxnBegin())
+        .WillOnce(Return(false));
+    wallet.WriteWitnessCache(walletdb);
+    EXPECT_CALL(walletdb, TxnBegin())
+        .WillRepeatedly(Return(true));
+
+    // WriteTx fails
+    EXPECT_CALL(walletdb, WriteTx(wtx.GetHash(), wtx))
+        .WillOnce(Return(false));
+    EXPECT_CALL(walletdb, TxnAbort())
+        .Times(1);
+    wallet.WriteWitnessCache(walletdb);
+
+    // WriteTx throws
+    EXPECT_CALL(walletdb, WriteTx(wtx.GetHash(), wtx))
+        .WillOnce(ThrowLogicError());
+    EXPECT_CALL(walletdb, TxnAbort())
+        .Times(1);
+    wallet.WriteWitnessCache(walletdb);
+    EXPECT_CALL(walletdb, WriteTx(wtx.GetHash(), wtx))
+        .WillRepeatedly(Return(true));
+
+    // WriteWitnessCacheSize fails
+    EXPECT_CALL(walletdb, WriteWitnessCacheSize(0))
+        .WillOnce(Return(false));
+    EXPECT_CALL(walletdb, TxnAbort())
+        .Times(1);
+    wallet.WriteWitnessCache(walletdb);
+
+    // WriteWitnessCacheSize throws
+    EXPECT_CALL(walletdb, WriteWitnessCacheSize(0))
+        .WillOnce(ThrowLogicError());
+    EXPECT_CALL(walletdb, TxnAbort())
+        .Times(1);
+    wallet.WriteWitnessCache(walletdb);
+    EXPECT_CALL(walletdb, WriteWitnessCacheSize(0))
+        .WillRepeatedly(Return(true));
+
+    // TxCommit fails
+    EXPECT_CALL(walletdb, TxnCommit())
+        .WillOnce(Return(false));
+    wallet.WriteWitnessCache(walletdb);
+    EXPECT_CALL(walletdb, TxnCommit())
+        .WillRepeatedly(Return(true));
+
+    // Everything succeeds
+    wallet.WriteWitnessCache(walletdb);
+}
+
+TEST(wallet_tests, UpdateNullifierNoteMap) {
+    TestWallet wallet;
+    uint256 r {GetRandHash()};
+    CKeyingMaterial vMasterKey (r.begin(), r.end());
+
+    auto sk = libzcash::SpendingKey::random();
+    wallet.AddSpendingKey(sk);
+
+    ASSERT_TRUE(wallet.EncryptKeys(vMasterKey));
+
+    auto wtx = GetValidReceive(sk, 10, true);
+    auto note = GetNote(sk, wtx, 0, 1);
+    auto nullifier = note.nullifier(sk);
+
+    // Pretend that we called FindMyNotes while the wallet was locked
+    mapNoteData_t noteData;
+    JSOutPoint jsoutpt {wtx.GetHash(), 0, 1};
+    CNoteData nd {sk.address()};
+    noteData[jsoutpt] = nd;
+    wtx.SetNoteData(noteData);
+
+    wallet.AddToWallet(wtx, true, NULL);
+    EXPECT_EQ(0, wallet.mapNullifiersToNotes.count(nullifier));
+
+    EXPECT_FALSE(wallet.UpdateNullifierNoteMap());
+
+    ASSERT_TRUE(wallet.Unlock(vMasterKey));
+
+    EXPECT_TRUE(wallet.UpdateNullifierNoteMap());
+    EXPECT_EQ(1, wallet.mapNullifiersToNotes.count(nullifier));
+    EXPECT_EQ(wtx.GetHash(), wallet.mapNullifiersToNotes[nullifier].hash);
+    EXPECT_EQ(0, wallet.mapNullifiersToNotes[nullifier].js);
+    EXPECT_EQ(1, wallet.mapNullifiersToNotes[nullifier].n);
 }
 
 TEST(wallet_tests, UpdatedNoteData) {
