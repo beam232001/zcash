@@ -44,6 +44,11 @@ fi
 PREFIX="$(pwd)/depends/x86_64-apple-darwin15.6.0/"
 
 make "$@" -C ./depends/ V=1 NO_QT=1
+
+cd $PREFIX/include
+ln -s . db
+cd ../../..
+
 ./autogen.sh
 CPPFLAGS="-I$PREFIX/include" LDFLAGS="-L$PREFIX/lib" \
 CXXFLAGS='-I/usr/local/Cellar/gcc5/5.4.0/include/c++/5.4.0 -I$PREFIX/include -fwrapv -fno-strict-aliasing -Werror -g -Wl,-undefined -Wl,dynamic_lookup' \
