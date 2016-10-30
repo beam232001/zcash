@@ -8,10 +8,6 @@ $(package)_git_commit=9be18569b8abcda1245c3912877075259599c0f1
 
 $(package)_dependencies=libgmp libsodium
 
-define $(package)_preprocess_cmds
-  cp ~/Downloads/profiling.cpp src/common/
-endef
-
 define $(package)_build_cmds
 CC=gcc-5 CXX=g++-5 AR=gar  CXXFLAGS="-fPIC -DBINARY_OUTPUT -DNO_PT_COMPRESSION=1" $(MAKE) lib DEPINST=$(host_prefix) CURVE=ALT_BN128 MULTICORE=0 NO_PROCPS=1 NO_GTEST=1 NO_DOCS=1 STATIC=1 NO_SUPERCOP=1 FEATUREFLAGS=-DMONTGOMERY_OUTPUT
 endef
