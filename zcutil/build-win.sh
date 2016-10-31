@@ -41,10 +41,10 @@ fi
 # BUG: parameterize the platform/host directory:
 PREFIX="$(pwd)/depends/$HOST"
 
-#make HOST=$HOST "$@" -C ./depends/ V=1 NO_QT=1
-#DBINC="${PREFIX}/include/bdb5.3"
-#mkdir -p $DBINC
-#cp ${PREFIX}/include/db*h $DBINC
+make HOST=$HOST "$@" -C ./depends/ V=1 NO_QT=1
+DBINC="${PREFIX}/include/bdb"
+mkdir -p $DBINC
+cp ${PREFIX}/include/db*h $DBINC
 
 #./autogen.sh
 CPPFLAGS="-I$PREFIX/include" LDFLAGS="-L$PREFIX/lib" \
