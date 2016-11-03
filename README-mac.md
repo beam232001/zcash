@@ -36,7 +36,7 @@ git checkout v1.0.0-mac-gcc
 ./zcutil/build-mac.sh
 ```
 
-and Happy Porting!!!!
+and Happy Building!!!!
 
 email <radix42@gmail.com> if you've followed the above
 instructions to the letter and get stuck!
