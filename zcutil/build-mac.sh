@@ -27,9 +27,6 @@ EOF
     exit 0
 fi
 
-#set -x
-#cd "$(dirname "$(readlink -f "$0")")/.."
-
 # If --enable-lcov is the first argument, enable lcov coverage support:
 LCOV_ARG=''
 HARDENING_ARG='--disable-hardening'
@@ -40,15 +37,10 @@ then
     shift
 fi
 
-# BUG: parameterize the platform/host directory:
-PREFIX="$(pwd)/depends/x86_64-apple-darwin15.6.0"
+TRIPLET=`./depends/config.guess`
+PREFIX="$(pwd)/depends/$TRIPLET"
 
 make "$@" -C ./depends/ V=1 NO_QT=1
-
-
-#cd $PREFIX/include
-#ln -s . db
-#cd ../../..
 
 ./autogen.sh
 CPPFLAGS="-I$PREFIX/include -arch x86_64" LDFLAGS="-L$PREFIX/lib -arch x86_64 -Wl,-no_pie" \
