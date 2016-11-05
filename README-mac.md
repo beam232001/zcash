@@ -1,10 +1,12 @@
 First off you need Apple's Xcode Command Line Tools:
+
 http://mac-how-to.wonderhowto.com/how-to/install-command-line-developer-tools-without-xcode-0168115/
 
 And Homebrew:
+
 http://brew.sh/
 
-Andthis is the list of brew packages you'll need installed:
+And this is the list of brew packages you'll need installed:
 
 ```shell
 brew tap discoteq/discoteq; brew install flock
