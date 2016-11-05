@@ -22,7 +22,7 @@ Get all that installed, then run:
 ```shell
 git clone https://github.com/radix42/zcash.git
 cd zcash
-git checkout v1.0.1-mac-gcc
+git checkout v1.0.1-gcc-mac
 ./zcutil/build-mac.sh
 ```
 When you are done building, you need to do a few things in the [Configuration](https://github.com/zcash/zcash/wiki/1.0-User-Guide#configuration) section of the Zcash User Guide differently because we are on the Mac. All instances of `~/.zcash` need to be replaced by `~/Library/Application\ Support/Zcash` and after you run `./zcutil/fetch-params.sh` you need to run `mv ~/.zcash-params ~/Library/Application\ Support/ZcashParams`
