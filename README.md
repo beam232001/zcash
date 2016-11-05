@@ -25,6 +25,10 @@ See important security warnings in
 
 Where do I begin?
 -----------------
+
+#### The latest Mac release of the @radix42 port is at:
+https://github.com/radix42/zcash/blob/v1.0.1-gcc-mac/README-mac.md
+
 We have a guide for joining the main Zcash network:
 https://github.com/zcash/zcash/wiki/1.0-User-Guide
 
