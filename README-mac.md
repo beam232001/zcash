@@ -30,6 +30,7 @@ When you are done building, you need to do a few things in the [Configuration](h
 Happy Building,
 
 David Mercer
+
 Tucson, AZ
 
 email <radix42@gmail.com> if you've followed the above
