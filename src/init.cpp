@@ -615,8 +615,8 @@ static void ZC_LoadParams()
     struct timeval tv_start, tv_end;
     float elapsed;
 
-    boost::filesystem::path pk_path = ZC_GetParamsDir() / "beta2-proving.key";
-    boost::filesystem::path vk_path = ZC_GetParamsDir() / "beta2-verifying.key";
+    boost::filesystem::path pk_path = ZC_GetParamsDir() / "sprout-proving.key";
+    boost::filesystem::path vk_path = ZC_GetParamsDir() / "sprout-verifying.key";
 
     pzcashParams = ZCJoinSplit::Unopened();
 
@@ -976,7 +976,9 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
     CScheduler::Function serviceLoop = boost::bind(&CScheduler::serviceQueue, &scheduler);
     threadGroup.create_thread(boost::bind(&TraceThread<CScheduler::Function>, "scheduler", serviceLoop));
 
-    if (GetBoolArg("-showmetrics", true) && !fPrintToConsole && !GetBoolArg("-daemon", false)) {
+    if ((chainparams.NetworkIDString() != "regtest") &&
+            GetBoolArg("-showmetrics", true) &&
+            !fPrintToConsole && !GetBoolArg("-daemon", false)) {
         // Start the persistent metrics interface
         ConnectMetricsScreen();
         threadGroup.create_thread(&ThreadShowMetricsScreen);
