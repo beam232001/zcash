@@ -15,6 +15,7 @@ brew install homebrew/versions/gcc5
 brew install binutils
 brew install protobuf
 brew install coreutils
+brew install wget
 ```
 
 Get all that installed, then run:
