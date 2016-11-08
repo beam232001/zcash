@@ -3,7 +3,7 @@ Zcash 1.0.2
 
 #### The latest Mac version is at:
 
-https://github.com/radix42/zcash/blob/v1.0.1-gcc-mac/README-mac.md
+https://github.com/radix42/zcash/blob/v1.0.2-mac-gcc/README-mac.md
 
 What is Zcash?
 --------------
