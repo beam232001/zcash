@@ -3,7 +3,7 @@ Zcash for Windows
 
 THIS PORT IS NOT YET COMPLETE
 
-Tucson, AZ - Nov 11,2016
+Tucson, AZ - Nov 11, 2016
 
 These instructions are for experienced C++ POSIX developers who wish
 to collaborate on bringing [Zcash](https//z.cash/) to Windows. Its current
@@ -45,7 +45,7 @@ pacman -S patch
 pacman -S libtool
 ```
 
-Now exit the MSYS2 shell, and in a MinGW64 shell, checkout the Windos branch of v1.0.2
+Now exit the MSYS2 shell, and in a MinGW64 shell, checkout the native Windows build branch of v1.0.2
 in my fork of Zcash:
 
 ```
