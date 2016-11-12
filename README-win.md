@@ -72,8 +72,11 @@ to get this port to Windows finished!
 Cheers,
 
 David Mercer
+
 Tucson, AZ
+
 radix42@gmail.com
+
 radix42 on twitter,
 forum.z.cash, chat.zcashcommunity.com
 and elsewhere
