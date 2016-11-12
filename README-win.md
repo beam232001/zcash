@@ -1,7 +1,7 @@
 Zcash for Windows
 =================
 
-THIS PORT IS NOT YET COMPLETE
+THIS PORT IS NOT YET COMPLETE - 64 bit Windows 10 ONLY
 
 Tucson, AZ - Nov 11, 2016
 
