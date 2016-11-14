@@ -7,7 +7,7 @@ https://github.com/radix42/zcash/blob/v1.0.2-mac-gcc/README-mac.md
 
 #### The latest arm64 version is at:
 
-https://github.com/radix42/zcash/tree/v1.0.2-arm
+https://github.com/radix42/zcash/blob/v1.0.2-arm/README-arm.md
 
 What is Zcash?
 --------------
