@@ -37,7 +37,8 @@ Tucson, AZ
 email <radix42@gmail.com> if you've followed the above
 instructions to the letter and get stuck!
 
-This is a volunteer effort, I'm not a ZcashCo employee and have no day job.
+This is a volunteer effort, I'm not a ZcashCo employee, and your support is what allows me
+to continue porting Zcash to more platforms.
 
 Donations in BTC to: 1L33E8M1LdXmAtgWaSgAVr4TEyDrLWk69B
 
