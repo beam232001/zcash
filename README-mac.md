@@ -36,3 +36,15 @@ Tucson, AZ
 
 email <radix42@gmail.com> if you've followed the above
 instructions to the letter and get stuck!
+
+This is a volunteer effort, I'm not a ZcashCo employee and have no day job.
+
+Donations in BTC to: 1L33E8M1LdXmAtgWaSgAVr4TEyDrLWk69B
+
+in ZEC to: t1WeYg7Vwe1E2N5sxY6MQ335x4i12KZwSMu
+
+or in dollars via PayPal to radix42@gmail.com
+
+Watch my website for upcoming versions and ports:
+
+https://zcash.mercerweiss.com
