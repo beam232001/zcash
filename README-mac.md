@@ -26,7 +26,8 @@ cd zcash
 git checkout v1.0.3-mac-gcc
 ./zcutil/build-mac.sh
 ```
-When you are done building, you need to do a few things in the [Configuration](https://github.com/zcash/zcash/wiki/1.0-User-Guide#configuration) section of the Zcash User Guide differently because we are on the Mac. All instances of `~/.zcash` need to be replaced by `~/Library/Application\ Support/Zcash` and after you run `./zcutil/fetch-params.sh` you need to run `mv ~/.zcash-params ~/Library/Application\ Support/ZcashParams`
+When you are done building, you need to do a few things in the [Configuration](https://github.com/zcash/zcash/wiki/1.0-User-Guide#configuration) section of the Zcash User Guide differently because we are on the Mac. All instances of `~/.zcash` need to be replaced by `~/Library/Application\ Support/Zcash` 
+The fetch-params.sh script, however, has already been altered to fetch the proving keys into the correct directory to conform to Mac specific naming conventions.
 
 Happy Building,
 
