@@ -1,6 +1,6 @@
-First off you need Apple's Xcode Command Line Tools:
+First off you need Apple's Xcode (at least version 7, preferably 8.x) and the Xcode Command Line Tools:
 
-http://mac-how-to.wonderhowto.com/how-to/install-command-line-developer-tools-without-xcode-0168115/
+https://itunes.apple.com/us/app/xcode/id497799835?mt=12
 
 And Homebrew:
 
