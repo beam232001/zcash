@@ -1,9 +1,9 @@
 Zcash 1.0.3
 ===========
 
-#### The latest Mac version is at:
+#### The Mac User Guide is at:
 
-https://github.com/radix42/zcash/blob/v1.0.3-mac-gcc/README-mac.md
+https://github.com/radix42/zcash/wiki/Mac-User-Guide
 
 #### The latest arm64 version is at:
 
