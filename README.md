@@ -1,6 +1,16 @@
 Zcash 1.0.4
 ===========
 
+#### zcash4mac, GUI release: https://zcash4mac.com
+
+#### The Mac User Guide (command-line version) is at:
+
+https://github.com/radix42/zcash/wiki/Mac-User-Guide
+
+#### The latest arm64 version is at:
+
+https://github.com/radix42/zcash/blob/v1.0.3-arm/README-arm.md
+
 What is Zcash?
 --------------
 
@@ -25,6 +35,7 @@ See important security warnings in
 
 Where do I begin?
 -----------------
+
 We have a guide for joining the main Zcash network:
 https://github.com/zcash/zcash/wiki/1.0-User-Guide
 

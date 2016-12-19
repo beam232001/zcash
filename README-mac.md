@@ -1,3 +1,23 @@
+LATEST GUI RELEASE
+==================
+
+Go to https://zcash4mac.com to download the dmg of zcash4mac,
+includes the latest release of zcash and a GUI wallet, no
+command line needed!
+
+Command-line version
+--------------------
+
+The User Guide for the command-line version is at:
+https://github.com/radix42/zcash/wiki/Mac-User-Guide
+
+It includes links to a pre-built binary release of the command-line
+zcash for mac, usage instructions, and an improved version of the
+following instructions to build from source.
+
+Building from source
+--------------------
+
 First off you need Apple's Xcode (at least version 7, preferably 8.x) and the Xcode Command Line Tools:
 
 https://itunes.apple.com/us/app/xcode/id497799835?mt=12
@@ -23,7 +43,7 @@ Get all that installed, then run:
 ```shell
 git clone https://github.com/radix42/zcash.git
 cd zcash
-git checkout v1.0.3-mac-gcc
+git checkout v1.0.4-mac-gcc
 ./zcutil/build-mac.sh
 ```
 When you are done building, you need to do a few things in the [Configuration](https://github.com/zcash/zcash/wiki/1.0-User-Guide#configuration) section of the Zcash User Guide differently because we are on the Mac. All instances of `~/.zcash` need to be replaced by `~/Library/Application\ Support/Zcash` 
