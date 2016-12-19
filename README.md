@@ -1,7 +1,9 @@
 Zcash 1.0.4
 ===========
 
-#### The Mac User Guide is at:
+#### zcash4mac, GUI release: https://zcash4mac.com
+
+#### The Mac User Guide (command-line version) is at:
 
 https://github.com/radix42/zcash/wiki/Mac-User-Guide
 
