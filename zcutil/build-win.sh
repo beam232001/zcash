@@ -48,7 +48,7 @@ cp ${PREFIX}/include/db*h $DBINC
 
 #./autogen.sh
 CPPFLAGS="-I$PREFIX/include" LDFLAGS="-L$PREFIX/lib" \
-CXXFLAGS="-I$PREFIX/include -fwrapv -fno-strict-aliasing -Werror -g -Wl,-export-all-symbols" \
+CXXFLAGS="-I$PREFIX/include -fwrapv -fno-strict-aliasing -Werror -g -Wl,-export-all-symbols -Wno-conversion-null" \
 ./configure --prefix="${PREFIX}"  --with-gui=no --with-boost="$PREFIX" "$HARDENING_ARG" "$LCOV_ARG"
 
 make "$@" V=1
