@@ -2,7 +2,7 @@
 
 # sanitize path because the one we get from Windows is garbage with spaces in it and
 # the makefiles in depends don't quote the path when they hand it to bash for ./configure
-export PATH=/mingw64/bin/:/usr/local/bin:/usr/bin:/bin:/usr/bin/site_perl:/usr/bin/vendor_perl:/usr/bin/core_perl
+export PATH=/C/msys64/mingw64/bin/:/usr/local/bin:/usr/bin:/bin:/usr/bin/site_perl:/usr/bin/vendor_perl:/usr/bin/core_perl
 
 HOST="x86_64-pc-mingw64"
 
