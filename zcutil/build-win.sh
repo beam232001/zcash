@@ -47,7 +47,13 @@ mkdir -p $DBINC
 cp ${PREFIX}/include/db*h $DBINC
 
 ./autogen.sh
-CPPFLAGS="-I$PREFIX/include" LDFLAGS="-L$PREFIX/lib" \
+CPPFLAGS="-I$PREFIX/include" LDFLAGS="-L$PREFIX/lib -lsodium \
+-lboost_chrono-mt-s \
+-lboost_filesystem-mt-s \
+-lboost_system-mt-s \
+-lboost_thread-mt-s \
+-lboost_timer-mt-s \
+" \
 CXXFLAGS="-I$PREFIX/include -fwrapv -fno-strict-aliasing -Werror -g -Wl,-export-all-symbols -Wno-conversion-null" \
 ./configure --prefix="${PREFIX}"  --with-gui=no --with-boost="$PREFIX" "$HARDENING_ARG" "$LCOV_ARG"
 
