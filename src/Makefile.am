@@ -470,8 +470,9 @@ libzcashconsensus_la_SOURCES = \
   script/script.cpp \
   uint256.cpp \
   utilstrencodings.cpp \
-  util.cpp
-
+  util.cpp \
+  zcash/JoinSplit.cpp
+    
 if GLIBC_BACK_COMPAT
   libzcashconsensus_la_SOURCES += compat/glibc_compat.cpp
 endif
