@@ -470,14 +470,19 @@ libzcashconsensus_la_SOURCES = \
   script/script.cpp \
   uint256.cpp \
   utilstrencodings.cpp \
-  util.cpp
-
+  util.cpp \
+  chainparamsbase.cpp \
+  utiltime.cpp \
+  random.cpp \
+  support/cleanse.cpp \
+  $(LIBZCASH_H) 
+    
 if GLIBC_BACK_COMPAT
   libzcashconsensus_la_SOURCES += compat/glibc_compat.cpp
 endif
 
 libzcashconsensus_la_LDFLAGS = -no-undefined $(RELDFLAGS)
-libzcashconsensus_la_LIBADD = $(CRYPTO_LIBS) $(BOOST_LIBS) $(EXTRA_LIBRARIES)
+libzcashconsensus_la_LIBADD = $(CRYPTO_LIBS) $(BOOST_LIBS) $(LIBZCASH)
 libzcashconsensus_la_CPPFLAGS = $(CRYPTO_CFLAGS) -I$(builddir)/obj -DBUILD_BITCOIN_INTERNAL
 
 endif
