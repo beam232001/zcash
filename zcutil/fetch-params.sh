@@ -6,8 +6,8 @@ PARAMS_DIR="$HOME/.zcash-params"
 
 SPROUT_PKEY_NAME='sprout-proving.key'
 SPROUT_VKEY_NAME='sprout-verifying.key'
-SPROUT_PKEY_URL="https://z.cash/downloads/$SPROUT_PKEY_NAME"
-SPROUT_VKEY_URL="https://z.cash/downloads/$SPROUT_VKEY_NAME"
+SPROUT_PKEY_URL="https://zcash.dl.mercerweiss.com/$SPROUT_PKEY_NAME"
+SPROUT_VKEY_URL="https://zcash.dl.mercerweiss.com/$SPROUT_VKEY_NAME"
 
 SHA256CMD="$(command -v sha256sum || echo shasum)"
 SHA256ARGS="$(command -v sha256sum >/dev/null || echo '-a 256')"
@@ -47,11 +47,12 @@ EOF
 function lock() {
     local lockfile=/tmp/fetch_params.lock
     # create lock file
-    eval "exec 200>/$lockfile"
+#    eval "exec 200>/$lockfile"
     # acquire the lock
-    flock -n 200 \
-        && return 0 \
-        || return 1
+#    flock -n 200 \
+#        && return 0 \
+#        || return 1
+return 0
 }
 
 function exit_locked_error {
