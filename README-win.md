@@ -50,7 +50,7 @@ in my fork of Zcash:
 
 ```
 git clone https://github.com/radix42/zcash.git
-git checkout v1.0.2-win-native
+git checkout v1.0.4-win-native
 ```
 
 You're now ready to attempt a build, which, unless there are updates to it after the date
