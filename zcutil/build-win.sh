@@ -60,9 +60,9 @@ CPPFLAGS="-I$PREFIX/include" LDFLAGS="-L$PREFIX/lib -lsodium -lsnark \
 " \
 CXXFLAGS="-I$PREFIX/include -fopenmp -fwrapv -fno-strict-aliasing -fno-stack-protector -D_FORTIFY_SOURCE=0 -g -Wl,-export-all-symbols -Wno-conversion-null -Wa,-mbig-obj" \
 ./configure --without-lib --prefix="${PREFIX}"  --with-gui=no --with-boost="$PREFIX" "$HARDENING_ARG" "$LCOV_ARG"
-
+make V=1
 cd src
 sed -i 's/-lboost_system-mt /-lboost_system-mt-s /' Makefile
-sh ./link-libzashconsensus.sh
+sh ./link-libzcashconsensus.sh
 cd ..
 make V=1 # zcashd.exe zcash-cli.exe
