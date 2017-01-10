@@ -63,4 +63,6 @@ CXXFLAGS="-I$PREFIX/include -fopenmp -fwrapv -fno-strict-aliasing -fno-stack-pro
 
 cd src
 sed -i 's/-lboost_system-mt /-lboost_system-mt-s /' Makefile
-make V=1 zcashd.exe zcash-cli.exe
+sh ./link-libzashconsensus.sh
+cd ..
+make V=1 # zcashd.exe zcash-cli.exe

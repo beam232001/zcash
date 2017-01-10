@@ -482,7 +482,7 @@ if GLIBC_BACK_COMPAT
 endif
 
 libzcashconsensus_la_LDFLAGS = -no-undefined $(RELDFLAGS)
-libzcashconsensus_la_LIBADD = $(CRYPTO_LIBS) $(BOOST_LIBS) $(EXTRA_LIBRARIES)
+libzcashconsensus_la_LIBADD = $(CRYPTO_LIBS) $(BOOST_LIBS)
 libzcashconsensus_la_CPPFLAGS = $(CRYPTO_CFLAGS) -I$(builddir)/obj -DBUILD_BITCOIN_INTERNAL
 
 endif
