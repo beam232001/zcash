@@ -1,10 +1,10 @@
 package=libsnark
 $(package)_version=0.1
-$(package)_download_path=https://github.com/zcash/$(package)/archive/
+$(package)_download_path=https://github.com/radix42/$(package)/archive/
 $(package)_file_name=$(package)-$($(package)_git_commit).tar.gz
 $(package)_download_file=$($(package)_git_commit).tar.gz
-$(package)_sha256_hash=09d406fef55a2463d3a5914927a46e1b927861c3ad4d82c0c1d13294452f5b6f
-$(package)_git_commit=7bb402b10066b7c67ef67de5145f8ab734953395
+$(package)_sha256_hash=8f798fba22aa71341b0c7dbbfe2e554d22533ffc7c8aacee686a3b1025a0b59a
+$(package)_git_commit=da7ca4e21def35baad0489bc94c3976016d690d5
 
 $(package)_dependencies=libsodium
 
