@@ -1,4 +1,4 @@
-Zcash 1.0.4
+Zcash 1.0.5
 ===========
 
 #### zcash4mac, GUI release: https://zcash4mac.com
