@@ -3,8 +3,8 @@ $(package)_download_path=https://github.com/radix42/$(package)/archive/
 $(package)_file_name=$(package)-$($(package)_git_commit).tar.gz
 $(package)_download_file=$($(package)_git_commit).tar.gz
 
-$(package)_sha256_hash=68ee487443d86cd3a862336c946df138689e7e6f806d8a0e4b7440e9eb67f360
-$(package)_git_commit=004fc430bc7fba95de8e4d6419f5b98fac6e1edf
+$(package)_sha256_hash=ef0887ac476d4d905f69c31f204431f4e75075c55bcd49c76f2cfb54b3d9e7b7
+$(package)_git_commit=3e66416dff56927fa1baca39d875f360dd5fc274
 
 $(package)_dependencies=libgmp libsodium
 
