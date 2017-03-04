@@ -11,6 +11,9 @@
 #include "crypto/common.h"
 #include "addrman.h"
 #include "amount.h"
+#ifdef ENABLE_MINING
+#include "base58.h"
+#endif
 #include "checkpoints.h"
 #include "compat/sanity.h"
 #include "consensus/validation.h"
@@ -31,7 +34,6 @@
 #include "wallet/wallet.h"
 #include "wallet/walletdb.h"
 #endif
-
 #include <stdint.h>
 #include <stdio.h>
 
@@ -50,6 +52,10 @@
 
 #include "libsnark/common/profiling.hpp"
 
+#if ENABLE_ZMQ
+#include "zmq/zmqnotificationinterface.h"
+#endif
+
 using namespace std;
 
 extern void ThreadSendAlert();
@@ -60,6 +66,10 @@ ZCJoinSplit* pzcashParams = NULL;
 CWallet* pwalletMain = NULL;
 #endif
 bool fFeeEstimatesInitialized = false;
+
+#if ENABLE_ZMQ
+static CZMQNotificationInterface* pzmqNotificationInterface = NULL;
+#endif
 
 #ifdef WIN32
 // Win32 LevelDB doesn't use file descriptors, and the ones used for
@@ -163,7 +173,13 @@ void Shutdown()
 #ifdef ENABLE_WALLET
     if (pwalletMain)
         pwalletMain->Flush(false);
+#endif
+#ifdef ENABLE_MINING
+ #ifdef ENABLE_WALLET
     GenerateBitcoins(false, NULL, 0);
+ #else
+    GenerateBitcoins(false, 0);
+ #endif
 #endif
     StopNode();
     UnregisterNodeSignals(GetNodeSignals());
@@ -197,6 +213,15 @@ void Shutdown()
     if (pwalletMain)
         pwalletMain->Flush(true);
 #endif
+
+#if ENABLE_ZMQ
+    if (pzmqNotificationInterface) {
+        UnregisterValidationInterface(pzmqNotificationInterface);
+        delete pzmqNotificationInterface;
+        pzmqNotificationInterface = NULL;
+    }
+#endif
+
 #ifndef WIN32
     try {
         boost::filesystem::remove(GetPidFile());
@@ -289,6 +314,7 @@ std::string HelpMessage(HelpMessageMode mode)
 #endif
     }
     strUsage += HelpMessageOpt("-datadir=<dir>", _("Specify data directory"));
+    strUsage += HelpMessageOpt("-exportdir=<dir>", _("Specify directory to be used when exporting data"));
     strUsage += HelpMessageOpt("-dbcache=<n>", strprintf(_("Set database cache size in megabytes (%d to %d, default: %d)"), nMinDbCache, nMaxDbCache, nDefaultDbCache));
     strUsage += HelpMessageOpt("-loadblock=<file>", _("Imports blocks from external blk000??.dat file") + " " + _("on startup"));
     strUsage += HelpMessageOpt("-maxorphantx=<n>", strprintf(_("Keep at most <n> unconnectable transactions in memory (default: %u)"), DEFAULT_MAX_ORPHAN_TRANSACTIONS));
@@ -364,6 +390,14 @@ std::string HelpMessage(HelpMessageMode mode)
                     
 #endif
 
+#if ENABLE_ZMQ
+    strUsage += HelpMessageGroup(_("ZeroMQ notification options:"));
+    strUsage += HelpMessageOpt("-zmqpubhashblock=<address>", _("Enable publish hash block in <address>"));
+    strUsage += HelpMessageOpt("-zmqpubhashtx=<address>", _("Enable publish hash transaction in <address>"));
+    strUsage += HelpMessageOpt("-zmqpubrawblock=<address>", _("Enable publish raw block in <address>"));
+    strUsage += HelpMessageOpt("-zmqpubrawtx=<address>", _("Enable publish raw transaction in <address>"));
+#endif
+
     strUsage += HelpMessageGroup(_("Debugging/Testing options:"));
     if (showDebug)
     {
@@ -376,16 +410,13 @@ std::string HelpMessage(HelpMessageMode mode)
         strUsage += HelpMessageOpt("-flushwallet", strprintf("Run a thread to flush wallet periodically (default: %u)", 1));
         strUsage += HelpMessageOpt("-stopafterblockimport", strprintf("Stop running after importing blocks from disk (default: %u)", 0));
     }
-    string debugCategories = "addrman, alert, bench, coindb, db, lock, rand, rpc, selectcoins, mempool, net, proxy, prune"; // Don't translate these and qt below
+    string debugCategories = "addrman, alert, bench, coindb, db, estimatefee, lock, mempool, net, partitioncheck, pow, proxy, prune, "
+                             "rand, reindex, rpc, selectcoins, zmq, zrpc, zrpcunsafe (implies zrpc)"; // Don't translate these and qt below
     if (mode == HMM_BITCOIN_QT)
         debugCategories += ", qt";
     strUsage += HelpMessageOpt("-debug=<category>", strprintf(_("Output debugging information (default: %u, supplying <category> is optional)"), 0) + ". " +
-        _("If <category> is not supplied or if <category> = 1, output all debugging information.") + _("<category> can be:") + " " + debugCategories + ".");
-#ifdef ENABLE_WALLET
-    strUsage += HelpMessageOpt("-gen", strprintf(_("Generate coins (default: %u)"), 0));
-    strUsage += HelpMessageOpt("-genproclimit=<n>", strprintf(_("Set the number of threads for coin generation if enabled (-1 = all cores, default: %d)"), 1));
-    strUsage += HelpMessageOpt("-equihashsolver=<name>", _("Specify the Equihash solver to be used if enabled (default: \"default\")"));
-#endif
+        _("If <category> is not supplied or if <category> = 1, output all debugging information.") + " " + _("<category> can be:") + " " + debugCategories + ".");
+    strUsage += HelpMessageOpt("-experimentalfeatures", _("Enable use of experimental features"));
     strUsage += HelpMessageOpt("-help-debug", _("Show all debugging options (usage: --help -help-debug)"));
     strUsage += HelpMessageOpt("-logips", strprintf(_("Include IP addresses in debug output (default: %u)"), 0));
     strUsage += HelpMessageOpt("-logtimestamps", strprintf(_("Prepend debug output with timestamp (default: %u)"), 1));
@@ -415,6 +446,22 @@ std::string HelpMessage(HelpMessageMode mode)
     strUsage += HelpMessageOpt("-blockminsize=<n>", strprintf(_("Set minimum block size in bytes (default: %u)"), 0));
     strUsage += HelpMessageOpt("-blockmaxsize=<n>", strprintf(_("Set maximum block size in bytes (default: %d)"), DEFAULT_BLOCK_MAX_SIZE));
     strUsage += HelpMessageOpt("-blockprioritysize=<n>", strprintf(_("Set maximum size of high-priority/low-fee transactions in bytes (default: %d)"), DEFAULT_BLOCK_PRIORITY_SIZE));
+
+#ifdef ENABLE_MINING
+    strUsage += HelpMessageGroup(_("Mining options:"));
+    strUsage += HelpMessageOpt("-gen", strprintf(_("Generate coins (default: %u)"), 0));
+    strUsage += HelpMessageOpt("-genproclimit=<n>", strprintf(_("Set the number of threads for coin generation if enabled (-1 = all cores, default: %d)"), 1));
+    strUsage += HelpMessageOpt("-equihashsolver=<name>", _("Specify the Equihash solver to be used if enabled (default: \"default\")"));
+    strUsage += HelpMessageOpt("-mineraddress=<addr>", _("Send mined coins to a specific single address"));
+    strUsage += HelpMessageOpt("-minetolocalwallet", strprintf(
+            _("Require that mined blocks use a coinbase address in the local wallet (default: %u)"),
+ #ifdef ENABLE_WALLET
+            1
+ #else
+            0
+ #endif
+            ));
+#endif
 
     strUsage += HelpMessageGroup(_("RPC server options:"));
     strUsage += HelpMessageOpt("-server", _("Accept command line and JSON-RPC commands"));
@@ -458,19 +505,6 @@ std::string HelpMessage(HelpMessageMode mode)
     }
 
     return strUsage;
-}
-
-std::string LicenseInfo()
-{
-    return FormatParagraph(strprintf(_("Copyright (C) 2009-%i The Bitcoin Core Developers"), COPYRIGHT_YEAR)) + "\n" +
-           FormatParagraph(strprintf(_("Copyright (C) 2015-%i The Zcash Developers"), COPYRIGHT_YEAR)) + "\n" +
-           "\n" +
-           FormatParagraph(_("This is experimental software.")) + "\n" +
-           "\n" +
-           FormatParagraph(_("Distributed under the MIT software license, see the accompanying file COPYING or <http://www.opensource.org/licenses/mit-license.php>.")) + "\n" +
-           "\n" +
-           FormatParagraph(_("This product includes software developed by the OpenSSL Project for use in the OpenSSL Toolkit <https://www.openssl.org/> and cryptographic software written by Eric Young and UPnP software written by Thomas Bernard.")) +
-           "\n";
 }
 
 static void BlockNotifyCallback(const uint256& hashNewTip)
@@ -621,6 +655,17 @@ static void ZC_LoadParams()
     boost::filesystem::path pk_path = ZC_GetParamsDir() / "sprout-proving.key";
     boost::filesystem::path vk_path = ZC_GetParamsDir() / "sprout-verifying.key";
 
+    if (!(boost::filesystem::exists(pk_path) && boost::filesystem::exists(vk_path))) {
+        uiInterface.ThreadSafeMessageBox(strprintf(
+            _("Cannot find the Zcash network parameters in the following directory:\n"
+              "%s\n"
+              "Please run 'zcash-fetch-params' or './zcutil/fetch-params.sh' and then restart."),
+                ZC_GetParamsDir()),
+            "", CClientUIInterface::MSG_ERROR);
+        StartShutdown();
+        return;
+    }
+
     pzcashParams = ZCJoinSplit::Unopened();
 
     LogPrintf("Loading verifying key from %s\n", vk_path.string().c_str());
@@ -705,6 +750,16 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
 
     // ********************************************************* Step 2: parameter interactions
     const CChainParams& chainparams = Params();
+
+    // Set this early so that experimental features are correctly enabled/disabled
+    fExperimentalMode = GetBoolArg("-experimentalfeatures", false);
+
+    // Fail early if user has set experimental options without the global flag
+    if (!fExperimentalMode) {
+        if (mapArgs.count("-developerencryptwallet")) {
+            return InitError(_("Wallet encryption requires -experimentalfeatures."));
+        }
+    }
 
     // Set this early so that parameter interactions go to console
     fPrintToConsole = GetBoolArg("-printtoconsole", false);
@@ -801,6 +856,15 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
     const vector<string>& categories = mapMultiArgs["-debug"];
     if (GetBoolArg("-nodebug", false) || find(categories.begin(), categories.end(), string("0")) != categories.end())
         fDebug = false;
+
+    // Special case: if debug=zrpcunsafe, implies debug=zrpc, so add it to debug categories
+    if (find(categories.begin(), categories.end(), string("zrpcunsafe")) != categories.end()) {
+        if (find(categories.begin(), categories.end(), string("zrpc")) == categories.end()) {
+            LogPrintf("%s: parameter interaction: setting -debug=zrpcunsafe -> -debug=zrpc\n", __func__);
+            vector<string>& v = mapMultiArgs["-debug"];
+            v.push_back("zrpc");
+        }
+    }
 
     // Check for -debugnet
     if (GetBoolArg("-debugnet", false))
@@ -916,6 +980,17 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
     nMaxDatacarrierBytes = GetArg("-datacarriersize", nMaxDatacarrierBytes);
 
     fAlerts = GetBoolArg("-alerts", DEFAULT_ALERTS);
+
+#ifdef ENABLE_MINING
+    if (mapArgs.count("-mineraddress")) {
+        CBitcoinAddress addr;
+        if (!addr.SetString(mapArgs["-mineraddress"])) {
+            return InitError(strprintf(
+                _("Invalid address for -mineraddress=<addr>: '%s' (must be a transparent address)"),
+                mapArgs["-mineraddress"]));
+        }
+    }
+#endif
 
     // ********************************************************* Step 4: application initialization: dir lock, daemonize, pidfile, debug log
 
@@ -1131,6 +1206,14 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
 
     BOOST_FOREACH(string strDest, mapMultiArgs["-seednode"])
         AddOneShot(strDest);
+
+#if ENABLE_ZMQ
+    pzmqNotificationInterface = CZMQNotificationInterface::CreateWithArguments(mapArgs);
+
+    if (pzmqNotificationInterface) {
+        RegisterValidationInterface(pzmqNotificationInterface);
+    }
+#endif
 
     // ********************************************************* Step 7: load block chain
 
@@ -1363,8 +1446,6 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
         if (fFirstRun)
         {
             // Create new keyUser and set as default key
-            RandAddSeedPerfmon();
-
             CPubKey newDefaultKey;
             if (pwalletMain->GetKeyFromPool(newDefaultKey)) {
                 pwalletMain->SetDefaultKey(newDefaultKey);
@@ -1436,6 +1517,33 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
     LogPrintf("No wallet support compiled in!\n");
 #endif // !ENABLE_WALLET
 
+#ifdef ENABLE_MINING
+ #ifndef ENABLE_WALLET
+    if (GetBoolArg("-minetolocalwallet", false)) {
+        return InitError(_("Zcash was not built with wallet support. Set -minetolocalwallet=0 to use -mineraddress, or rebuild Zcash with wallet support."));
+    }
+    if (GetArg("-mineraddress", "").empty() && GetBoolArg("-gen", false)) {
+        return InitError(_("Zcash was not built with wallet support. Set -mineraddress, or rebuild Zcash with wallet support."));
+    }
+ #endif // !ENABLE_WALLET
+
+    if (mapArgs.count("-mineraddress")) {
+ #ifdef ENABLE_WALLET
+        bool minerAddressInLocalWallet = false;
+        if (pwalletMain) {
+            // Address has alreday been validated
+            CBitcoinAddress addr(mapArgs["-mineraddress"]);
+            CKeyID keyID;
+            addr.GetKeyID(keyID);
+            minerAddressInLocalWallet = pwalletMain->HaveKey(keyID);
+        }
+        if (GetBoolArg("-minetolocalwallet", true) && !minerAddressInLocalWallet) {
+            return InitError(_("-mineraddress is not in the local wallet. Either use a local address, or set -minetolocalwallet=0"));
+        }
+ #endif // ENABLE_WALLET
+    }
+#endif // ENABLE_MINING
+
     // ********************************************************* Step 9: data directory maintenance
 
     // if pruning, unset the service bit and perform the initial blockstore prune
@@ -1481,8 +1589,6 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
     if (!strErrors.str().empty())
         return InitError(strErrors.str());
 
-    RandAddSeedPerfmon();
-
     //// debug print
     LogPrintf("mapBlockIndex.size() = %u\n",   mapBlockIndex.size());
     LogPrintf("nBestHeight = %d\n",                   chainActive.Height());
@@ -1500,10 +1606,14 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
                                          boost::ref(cs_main), boost::cref(pindexBestHeader), nPowTargetSpacing);
     scheduler.scheduleEvery(f, nPowTargetSpacing);
 
-#ifdef ENABLE_WALLET
+#ifdef ENABLE_MINING
     // Generate coins in the background
-    if (pwalletMain)
+ #ifdef ENABLE_WALLET
+    if (pwalletMain || !GetArg("-mineraddress", "").empty())
         GenerateBitcoins(GetBoolArg("-gen", false), pwalletMain, GetArg("-genproclimit", 1));
+ #else
+    GenerateBitcoins(GetBoolArg("-gen", false), GetArg("-genproclimit", 1));
+ #endif
 #endif
 
     // ********************************************************* Step 11: finished

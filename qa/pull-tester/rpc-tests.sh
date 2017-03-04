@@ -15,6 +15,7 @@ testScripts=(
     'wallet_protectcoinbase.py'
     'wallet.py'
     'wallet_nullifiers.py'
+    'wallet_1941.py'
     'listtransactions.py'
     'mempool_resurrect_test.py'
     'txn_doublespend.py'
@@ -55,6 +56,10 @@ testScriptsExt=(
 #    'forknotify.py'
     'p2p-acceptblock.py'
 );
+
+if [ "x$ENABLE_ZMQ" = "x1" ]; then
+  testScripts+=('zmq_test.py')
+fi
 
 extArg="-extended"
 passOn=${@#$extArg}

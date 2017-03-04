@@ -35,7 +35,6 @@ previous release:
     README.md
     src/clientversion.h
     configure.ac
-    contrib/DEBIAN/control
     contrib/gitian-descriptors/gitian-linux.yml
 
     Build and commit to update versions, and then perform the following commands:
@@ -56,6 +55,9 @@ In `configure.ac` and `clientversion.h`:
   - 0-24: `1.0.1-beta1`-`1.0.1-beta25`
 
 - Change `CLIENT_VERSION_IS_RELEASE` to false while Zcash is in beta-test phase.
+
+If this release changes the behavior of the protocol or fixes a serious bug, we may
+also wish to change the `PROTOCOL_VERSION` in `version.h`.
 
 ### B2. Write release notes
 
@@ -112,8 +114,14 @@ Notify the Zcash DevOps engineer/sysadmin that the release has been tagged. They
 
 Then, verify that nodes can connect to the testnet server, and update the guide on the wiki to ensure the correct hostname is listed in the recommended zcash.conf.
 
-## F. Update the Beta Guide
+## F. Update the 1.0 User Guide
+
 ## G. Publish the release announcement (blog, zcash-dev, slack)
+
+### G1. Check in with users who opened issues that were resolved in the release
+
+Contact all users who opened `user support` issues that were resolved in the release, and ask them if the release fixes or improves their issue.
+
 ## H. Make and deploy deterministic builds
 
 - Run the [Gitian deterministic build environment](https://github.com/zcash/zcash-gitian)
