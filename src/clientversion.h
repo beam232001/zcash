@@ -17,7 +17,11 @@
 #define CLIENT_VERSION_MAJOR 1
 #define CLIENT_VERSION_MINOR 0
 #define CLIENT_VERSION_REVISION 7
+<<<<<<< HEAD
 #define CLIENT_VERSION_BUILD 50
+=======
+#define CLIENT_VERSION_BUILD 51
+>>>>>>> v1.0.7-1
 
 //! Set to true for release, false for prerelease or test build
 #define CLIENT_VERSION_IS_RELEASE true
