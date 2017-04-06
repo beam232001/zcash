@@ -45,6 +45,6 @@ make "$@" -C ./depends/ V=1 NO_QT=1
 ./autogen.sh
 CPPFLAGS="-I$PREFIX/include -arch x86_64" LDFLAGS="-L$PREFIX/lib -arch x86_64 -Wl,-no_pie" \
 CXXFLAGS='-arch x86_64 -I/usr/local/Cellar/gcc5/5.4.0/include/c++/5.4.0 -I$PREFIX/include -fwrapv -fno-strict-aliasing -Werror -g -Wl,-undefined -Wl,dynamic_lookup' \
-./configure --prefix="${PREFIX}" --with-gui=no "$HARDENING_ARG" "$LCOV_ARG"
+./configure --prefix="${PREFIX}" --with-gui=no "$HARDENING_ARG" "$LCOV_ARG" --disable-rust
 
 make "$@" V=1 NO_GTEST=1 STATIC=1
