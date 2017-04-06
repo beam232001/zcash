@@ -17,13 +17,54 @@
 #include <sys/ioctl.h>
 #include <unistd.h>
 
+void AtomicTimer::start()
+{
+    std::unique_lock<std::mutex> lock(mtx);
+    if (threads < 1) {
+        start_time = GetTime();
+    }
+    ++threads;
+}
+
+void AtomicTimer::stop()
+{
+    std::unique_lock<std::mutex> lock(mtx);
+    // Ignore excess calls to stop()
+    if (threads > 0) {
+        --threads;
+        if (threads < 1) {
+            int64_t time_span = GetTime() - start_time;
+            total_time += time_span;
+        }
+    }
+}
+
+bool AtomicTimer::running()
+{
+    std::unique_lock<std::mutex> lock(mtx);
+    return threads > 0;
+}
+
+double AtomicTimer::rate(const AtomicCounter& count)
+{
+    std::unique_lock<std::mutex> lock(mtx);
+    int64_t duration = total_time;
+    if (threads > 0) {
+        // Timer is running, so get the latest count
+        duration += GetTime() - start_time;
+    }
+    return duration > 0 ? (double)count.get() / duration : 0;
+}
+
 CCriticalSection cs_metrics;
 
 boost::synchronized_value<int64_t> nNodeStartTime;
+boost::synchronized_value<int64_t> nNextRefresh;
 AtomicCounter transactionsValidated;
 AtomicCounter ehSolverRuns;
 AtomicCounter solutionTargetChecks;
 AtomicCounter minedBlocks;
+AtomicTimer miningTimer;
 
 boost::synchronized_value<std::list<uint256>> trackedBlocks;
 
@@ -50,20 +91,25 @@ int64_t GetUptime()
     return GetTime() - *nNodeStartTime;
 }
 
-double GetLocalSolPS_INTERNAL(int64_t uptime)
-{
-    return uptime > 0 ? (double)solutionTargetChecks.get() / uptime : 0;
-}
-
 double GetLocalSolPS()
 {
-    return GetLocalSolPS_INTERNAL(GetUptime());
+    return miningTimer.rate(solutionTargetChecks);
+}
+
+void TriggerRefresh()
+{
+    *nNextRefresh = GetTime();
+    // Ensure that the refresh has started before we return
+    MilliSleep(200);
 }
 
 static bool metrics_ThreadSafeMessageBox(const std::string& message,
                                       const std::string& caption,
                                       unsigned int style)
 {
+    // The SECURE flag has no effect in the metrics UI.
+    style &= ~CClientUIInterface::SECURE;
+
     std::string strCaption;
     // Check for usage of predefined caption
     switch (style) {
@@ -85,6 +131,14 @@ static bool metrics_ThreadSafeMessageBox(const std::string& message,
     if (u->size() > 5) {
         u->pop_back();
     }
+
+    TriggerRefresh();
+    return false;
+}
+
+static bool metrics_ThreadSafeQuestion(const std::string& /* ignored interactive message */, const std::string& message, const std::string& caption, unsigned int style)
+{
+    return metrics_ThreadSafeMessageBox(message, caption, style);
 }
 
 static void metrics_InitMessage(const std::string& message)
@@ -96,24 +150,43 @@ void ConnectMetricsScreen()
 {
     uiInterface.ThreadSafeMessageBox.disconnect_all_slots();
     uiInterface.ThreadSafeMessageBox.connect(metrics_ThreadSafeMessageBox);
+    uiInterface.ThreadSafeQuestion.disconnect_all_slots();
+    uiInterface.ThreadSafeQuestion.connect(metrics_ThreadSafeQuestion);
     uiInterface.InitMessage.disconnect_all_slots();
     uiInterface.InitMessage.connect(metrics_InitMessage);
 }
 
-int printNetworkStats()
+int printStats(bool mining)
 {
-    LOCK2(cs_main, cs_vNodes);
+    // Number of lines that are always displayed
+    int lines = 4;
 
-    std::cout << "           " << _("Block height") << " | " << chainActive.Height() << std::endl;
-    std::cout << "  " << _("Network solution rate") << " | " << GetNetworkHashPS(120, -1) << " Sol/s" << std::endl;
-    std::cout << "            " << _("Connections") << " | " << vNodes.size() << std::endl;
+    int height;
+    size_t connections;
+    int64_t netsolps;
+    {
+        LOCK2(cs_main, cs_vNodes);
+        height = chainActive.Height();
+        connections = vNodes.size();
+        netsolps = GetNetworkHashPS(120, -1);
+    }
+    auto localsolps = GetLocalSolPS();
+
+    std::cout << "           " << _("Block height") << " | " << height << std::endl;
+    std::cout << "            " << _("Connections") << " | " << connections << std::endl;
+    std::cout << "  " << _("Network solution rate") << " | " << netsolps << " Sol/s" << std::endl;
+    if (mining && miningTimer.running()) {
+        std::cout << "    " << _("Local solution rate") << " | " << strprintf("%.4f Sol/s", localsolps) << std::endl;
+        lines++;
+    }
     std::cout << std::endl;
 
-    return 4;
+    return lines;
 }
 
 int printMiningStatus(bool mining)
 {
+#ifdef ENABLE_MINING
     // Number of lines that are always displayed
     int lines = 1;
 
@@ -126,8 +199,23 @@ int printMiningStatus(bool mining)
             else
                 nThreads = boost::thread::hardware_concurrency();
         }
-        std::cout << strprintf(_("You are mining with the %s solver on %d threads."),
-                               GetArg("-equihashsolver", "default"), nThreads) << std::endl;
+        if (miningTimer.running()) {
+            std::cout << strprintf(_("You are mining with the %s solver on %d threads."),
+                                   GetArg("-equihashsolver", "default"), nThreads) << std::endl;
+        } else {
+            bool fvNodesEmpty;
+            {
+                LOCK(cs_vNodes);
+                fvNodesEmpty = vNodes.empty();
+            }
+            if (fvNodesEmpty) {
+                std::cout << _("Mining is paused while waiting for connections.") << std::endl;
+            } else if (IsInitialBlockDownload()) {
+                std::cout << _("Mining is paused while downloading blocks.") << std::endl;
+            } else {
+                std::cout << _("Mining is paused (a JoinSplit may be in progress).") << std::endl;
+            }
+        }
         lines++;
     } else {
         std::cout << _("You are currently not mining.") << std::endl;
@@ -137,6 +225,9 @@ int printMiningStatus(bool mining)
     std::cout << std::endl;
 
     return lines;
+#else // ENABLE_MINING
+    return 0;
+#endif // !ENABLE_MINING
 }
 
 int printMetrics(size_t cols, bool mining)
@@ -176,11 +267,8 @@ int printMetrics(size_t cols, bool mining)
     }
 
     if (mining && loaded) {
-        double solps = GetLocalSolPS_INTERNAL(uptime);
-        std::string strSolps = strprintf("%.4f Sol/s", solps);
-        std::cout << "- " << strprintf(_("You have contributed %s on average to the network solution rate."), strSolps) << std::endl;
         std::cout << "- " << strprintf(_("You have completed %d Equihash solver runs."), ehSolverRuns.get()) << std::endl;
-        lines += 2;
+        lines++;
 
         int mined = 0;
         int orphaned = 0;
@@ -247,8 +335,21 @@ int printMessageBox(size_t cols)
     std::cout << _("Messages:") << std::endl;
     for (auto it = u->cbegin(); it != u->cend(); ++it) {
         std::cout << *it << std::endl;
-        // Handle wrapped lines
-        lines += (it->size() / cols);
+        // Handle newlines and wrapped lines
+        size_t i = 0;
+        size_t j = 0;
+        while (j < it->size()) {
+            i = it->find('\n', j);
+            if (i == std::string::npos) {
+                i = it->size();
+            } else {
+                // Newline
+                lines++;
+            }
+            // Wrapped lines
+            lines += ((i-j) / cols);
+            j = i + 1;
+        }
     }
     std::cout << std::endl;
     return lines;
@@ -292,6 +393,9 @@ void ThreadShowMetricsScreen()
         // Thank you text
         std::cout << _("Thank you for running a Zcash node!") << std::endl;
         std::cout << _("You're helping to strengthen the network and contributing to a social good :)") << std::endl;
+
+        // Privacy notice text
+        std::cout << PrivacyInfo();
         std::cout << std::endl;
     }
 
@@ -315,12 +419,16 @@ void ThreadShowMetricsScreen()
         }
 
         // Miner status
+#ifdef ENABLE_MINING
         bool mining = GetBoolArg("-gen", false);
+#else
+        bool mining = false;
+#endif
 
         if (loaded) {
-            lines += printNetworkStats();
+            lines += printStats(mining);
+            lines += printMiningStatus(mining);
         }
-        lines += printMiningStatus(mining);
         lines += printMetrics(cols, mining);
         lines += printMessageBox(cols);
         lines += printInitMessage();
@@ -333,8 +441,8 @@ void ThreadShowMetricsScreen()
             std::cout << "----------------------------------------" << std::endl;
         }
 
-        int64_t nWaitEnd = GetTime() + nRefresh;
-        while (GetTime() < nWaitEnd) {
+        *nNextRefresh = GetTime() + nRefresh;
+        while (GetTime() < *nNextRefresh) {
             boost::this_thread::interruption_point();
             MilliSleep(200);
         }

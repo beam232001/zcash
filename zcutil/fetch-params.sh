@@ -26,7 +26,7 @@ function fetch_params {
             -# -L -C - \
             "$url"
 
-        "$SHA256CMD" $SHA256ARGS --check <<EOF
+        "$SHA256CMD" $SHA256ARGS -c <<EOF
 $expectedhash  $dlname
 EOF
 
