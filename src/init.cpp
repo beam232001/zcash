@@ -59,6 +59,10 @@
 #include "zmq/zmqnotificationinterface.h"
 #endif
 
+#if ENABLE_PROTON
+#include "amqp/amqpnotificationinterface.h"
+#endif
+
 using namespace std;
 
 extern void ThreadSendAlert();
@@ -72,6 +76,10 @@ bool fFeeEstimatesInitialized = false;
 
 #if ENABLE_ZMQ
 static CZMQNotificationInterface* pzmqNotificationInterface = NULL;
+#endif
+
+#if ENABLE_PROTON
+static AMQPNotificationInterface* pAMQPNotificationInterface = NULL;
 #endif
 
 #ifdef WIN32
@@ -153,6 +161,7 @@ public:
 
 static CCoinsViewDB *pcoinsdbview = NULL;
 static CCoinsViewErrorCatcher *pcoinscatcher = NULL;
+static boost::scoped_ptr<ECCVerifyHandle> globalVerifyHandle;
 
 void Interrupt(boost::thread_group& threadGroup)
 {
@@ -236,6 +245,14 @@ void Shutdown()
     }
 #endif
 
+#if ENABLE_PROTON
+    if (pAMQPNotificationInterface) {
+        UnregisterValidationInterface(pAMQPNotificationInterface);
+        delete pAMQPNotificationInterface;
+        pAMQPNotificationInterface = NULL;
+    }
+#endif
+
 #ifndef WIN32
     try {
         boost::filesystem::remove(GetPidFile());
@@ -250,6 +267,7 @@ void Shutdown()
 #endif
     delete pzcashParams;
     pzcashParams = NULL;
+    globalVerifyHandle.reset();
     ECC_Stop();
     LogPrintf("%s: done\n", __func__);
 }
@@ -328,12 +346,15 @@ std::string HelpMessage(HelpMessageMode mode)
 #endif
     }
     strUsage += HelpMessageOpt("-datadir=<dir>", _("Specify data directory"));
+    strUsage += HelpMessageOpt("-disabledeprecation=<version>", strprintf(_("Disable block-height node deprecation and automatic shutdown (example: -disabledeprecation=%s)"),
+        FormatVersion(CLIENT_VERSION)));
     strUsage += HelpMessageOpt("-exportdir=<dir>", _("Specify directory to be used when exporting data"));
     strUsage += HelpMessageOpt("-dbcache=<n>", strprintf(_("Set database cache size in megabytes (%d to %d, default: %d)"), nMinDbCache, nMaxDbCache, nDefaultDbCache));
     strUsage += HelpMessageOpt("-loadblock=<file>", _("Imports blocks from external blk000??.dat file") + " " + _("on startup"));
     strUsage += HelpMessageOpt("-maxorphantx=<n>", strprintf(_("Keep at most <n> unconnectable transactions in memory (default: %u)"), DEFAULT_MAX_ORPHAN_TRANSACTIONS));
+    strUsage += HelpMessageOpt("-mempooltxinputlimit=<n>", _("Set the maximum number of transparent inputs in a transaction that the mempool will accept (default: 0 = no limit applied)"));
     strUsage += HelpMessageOpt("-par=<n>", strprintf(_("Set the number of script verification threads (%u to %d, 0 = auto, <0 = leave that many cores free, default: %d)"),
-        -(int)boost::thread::hardware_concurrency(), MAX_SCRIPTCHECK_THREADS, DEFAULT_SCRIPTCHECK_THREADS));
+        -GetNumCores(), MAX_SCRIPTCHECK_THREADS, DEFAULT_SCRIPTCHECK_THREADS));
 #ifndef WIN32
     strUsage += HelpMessageOpt("-pid=<file>", strprintf(_("Specify pid file (default: %s)"), "zcashd.pid"));
 #endif
@@ -412,6 +433,14 @@ std::string HelpMessage(HelpMessageMode mode)
     strUsage += HelpMessageOpt("-zmqpubhashtx=<address>", _("Enable publish hash transaction in <address>"));
     strUsage += HelpMessageOpt("-zmqpubrawblock=<address>", _("Enable publish raw block in <address>"));
     strUsage += HelpMessageOpt("-zmqpubrawtx=<address>", _("Enable publish raw transaction in <address>"));
+#endif
+
+#if ENABLE_PROTON
+    strUsage += HelpMessageGroup(_("AMQP 1.0 notification options:"));
+    strUsage += HelpMessageOpt("-amqppubhashblock=<address>", _("Enable publish hash block in <address>"));
+    strUsage += HelpMessageOpt("-amqppubhashtx=<address>", _("Enable publish hash transaction in <address>"));
+    strUsage += HelpMessageOpt("-amqppubrawblock=<address>", _("Enable publish raw block in <address>"));
+    strUsage += HelpMessageOpt("-amqppubrawtx=<address>", _("Enable publish raw transaction in <address>"));
 #endif
 
     strUsage += HelpMessageGroup(_("Debugging/Testing options:"));
@@ -635,8 +664,7 @@ void ThreadImport(std::vector<boost::filesystem::path> vImportFiles)
 bool InitSanityCheck(void)
 {
     if(!ECC_InitSanityCheck()) {
-        InitError("OpenSSL appears to lack support for elliptic curve cryptography. For more "
-                  "information, visit https://en.bitcoin.it/wiki/OpenSSL_and_EC_Libraries");
+        InitError("Elliptic curve cryptography sanity check failure. Aborting.");
         return false;
     }
     if (!glibc_sanity_test() || !glibcxx_sanity_test())
@@ -901,7 +929,7 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
     // -par=0 means autodetect, but nScriptCheckThreads==0 means no concurrency
     nScriptCheckThreads = GetArg("-par", DEFAULT_SCRIPTCHECK_THREADS);
     if (nScriptCheckThreads <= 0)
-        nScriptCheckThreads += boost::thread::hardware_concurrency();
+        nScriptCheckThreads += GetNumCores();
     if (nScriptCheckThreads <= 1)
         nScriptCheckThreads = 0;
     else if (nScriptCheckThreads > MAX_SCRIPTCHECK_THREADS)
@@ -1009,6 +1037,17 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
     }
 #endif
 
+    // Default value of 0 for mempooltxinputlimit means no limit is applied
+    if (mapArgs.count("-mempooltxinputlimit")) {
+        int64_t limit = GetArg("-mempooltxinputlimit", 0);
+        if (limit < 0) {
+            return InitError(_("Mempool limit on transparent inputs to a transaction cannot be negative"));
+        } else if (limit > 0) {
+            LogPrintf("Mempool configured to reject transactions with greater than %lld transparent inputs\n", limit);
+        }
+    }
+
+
     // ********************************************************* Step 4: application initialization: dir lock, daemonize, pidfile, debug log
 
     // Initialize libsodium
@@ -1018,6 +1057,7 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
 
     // Initialize elliptic curve code
     ECC_Start();
+    globalVerifyHandle.reset(new ECCVerifyHandle());
 
     // Sanity check
     if (!InitSanityCheck())
@@ -1236,6 +1276,21 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
 
     if (pzmqNotificationInterface) {
         RegisterValidationInterface(pzmqNotificationInterface);
+    }
+#endif
+
+#if ENABLE_PROTON
+    pAMQPNotificationInterface = AMQPNotificationInterface::CreateWithArguments(mapArgs);
+
+    if (pAMQPNotificationInterface) {
+
+        // AMQP support is currently an experimental feature, so fail if user configured AMQP notifications
+        // without enabling experimental features.
+        if (!fExperimentalMode) {
+            return InitError(_("AMQP support requires -experimentalfeatures."));
+        }
+
+        RegisterValidationInterface(pAMQPNotificationInterface);
     }
 #endif
 

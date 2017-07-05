@@ -5,7 +5,7 @@ BASE_CACHE ?= $(BASEDIR)/built
 SDK_PATH ?= $(BASEDIR)/SDKs
 NO_WALLET ?=
 NO_UPNP ?=
-FALLBACK_DOWNLOAD_PATH ?= https://z.cash/depends-sources
+PRIORITY_DOWNLOAD_PATH ?= https://z.cash/depends-sources
 
 BUILD ?= $(shell ./config.guess)
 HOST ?= $(BUILD)
@@ -75,8 +75,9 @@ include packages/packages.mk
 rust_packages_$(NO_RUST) = $(rust_packages)
 wallet_packages_$(NO_WALLET) = $(wallet_packages)
 upnp_packages_$(NO_UPNP) = $(upnp_packages)
+proton_packages_$(NO_PROTON) = $(proton_packages)
 
-packages += $($(host_arch)_$(host_os)_packages) $($(host_os)_packages) $(rust_packages_) $(wallet_packages_) $(upnp_packages_)
+packages += $($(host_arch)_$(host_os)_packages) $($(host_os)_packages) $(rust_packages_) $(proton_packages_) $(wallet_packages_) $(upnp_packages_)
 native_packages += $($(host_arch)_$(host_os)_native_packages) $($(host_os)_native_packages)
 all_packages = $(packages) $(native_packages)
 
