@@ -9,6 +9,7 @@ BUILD_PATH="/tmp/zcbuild"
 PACKAGE_NAME="zcash"
 SRC_PATH=`pwd`
 SRC_DEB=$SRC_PATH/contrib/debian
+SRC_DOC=$SRC_PATH/doc
 
 umask 022
 
@@ -17,6 +18,7 @@ if [ ! -d $BUILD_PATH ]; then
 fi
 
 PACKAGE_VERSION=$($SRC_PATH/src/zcashd --version | grep version | cut -d' ' -f4 | tr -d v)
+DEBVERSION=$(echo $PACKAGE_VERSION | sed 's/-beta/~beta/' | sed 's/-rc/~rc/' | sed 's/-/+/')
 BUILD_DIR="$BUILD_PATH/$PACKAGE_NAME-$PACKAGE_VERSION-amd64"
 
 if [ -d $BUILD_DIR ]; then
@@ -45,9 +47,9 @@ cp $SRC_DEB/changelog $DEB_DOC/changelog.Debian
 cp $SRC_DEB/copyright $DEB_DOC
 cp -r $SRC_DEB/examples $DEB_DOC
 # Copy manpages
-cp $SRC_DEB/manpages/zcashd.1 $DEB_MAN
-cp $SRC_DEB/manpages/zcash-cli.1 $DEB_MAN
-cp $SRC_DEB/manpages/zcash-fetch-params.1 $DEB_MAN
+cp $SRC_DOC/man/zcashd.1 $DEB_MAN
+cp $SRC_DOC/man/zcash-cli.1 $DEB_MAN
+cp $SRC_DOC/man/zcash-fetch-params.1 $DEB_MAN
 # Copy bash completion files
 cp $SRC_PATH/contrib/bitcoind.bash-completion $DEB_CMP/zcashd
 cp $SRC_PATH/contrib/bitcoin-cli.bash-completion $DEB_CMP/zcash-cli
@@ -62,7 +64,7 @@ cd $SRC_PATH/contrib
 
 # Create the control file
 dpkg-shlibdeps $DEB_BIN/zcashd $DEB_BIN/zcash-cli
-dpkg-gencontrol -P$BUILD_DIR
+dpkg-gencontrol -P$BUILD_DIR -v$DEBVERSION
 
 # Create the Debian package
 fakeroot dpkg-deb --build $BUILD_DIR

@@ -5,17 +5,64 @@
 #include "metrics.h"
 
 #include "chainparams.h"
+#include "checkpoints.h"
 #include "main.h"
 #include "ui_interface.h"
 #include "util.h"
 #include "utiltime.h"
 #include "utilmoneystr.h"
+#include "utilstrencodings.h"
 
 #include <boost/thread.hpp>
 #include <boost/thread/synchronized_value.hpp>
 #include <string>
 #include <sys/ioctl.h>
 #include <unistd.h>
+
+void AtomicTimer::start()
+{
+    std::unique_lock<std::mutex> lock(mtx);
+    if (threads < 1) {
+        start_time = GetTime();
+    }
+    ++threads;
+}
+
+void AtomicTimer::stop()
+{
+    std::unique_lock<std::mutex> lock(mtx);
+    // Ignore excess calls to stop()
+    if (threads > 0) {
+        --threads;
+        if (threads < 1) {
+            int64_t time_span = GetTime() - start_time;
+            total_time += time_span;
+        }
+    }
+}
+
+bool AtomicTimer::running()
+{
+    std::unique_lock<std::mutex> lock(mtx);
+    return threads > 0;
+}
+
+uint64_t AtomicTimer::threadCount()
+{
+    std::unique_lock<std::mutex> lock(mtx);
+    return threads;
+}
+
+double AtomicTimer::rate(const AtomicCounter& count)
+{
+    std::unique_lock<std::mutex> lock(mtx);
+    int64_t duration = total_time;
+    if (threads > 0) {
+        // Timer is running, so get the latest count
+        duration += GetTime() - start_time;
+    }
+    return duration > 0 ? (double)count.get() / duration : 0;
+}
 
 CCriticalSection cs_metrics;
 
@@ -25,6 +72,7 @@ AtomicCounter transactionsValidated;
 AtomicCounter ehSolverRuns;
 AtomicCounter solutionTargetChecks;
 AtomicCounter minedBlocks;
+AtomicTimer miningTimer;
 
 boost::synchronized_value<std::list<uint256>> trackedBlocks;
 
@@ -51,14 +99,39 @@ int64_t GetUptime()
     return GetTime() - *nNodeStartTime;
 }
 
-double GetLocalSolPS_INTERNAL(int64_t uptime)
-{
-    return uptime > 0 ? (double)solutionTargetChecks.get() / uptime : 0;
-}
-
 double GetLocalSolPS()
 {
-    return GetLocalSolPS_INTERNAL(GetUptime());
+    return miningTimer.rate(solutionTargetChecks);
+}
+
+int EstimateNetHeightInner(int height, int64_t tipmediantime,
+                           int heightLastCheckpoint, int64_t timeLastCheckpoint,
+                           int64_t genesisTime, int64_t targetSpacing)
+{
+    // We average the target spacing with the observed spacing to the last
+    // checkpoint (either from below or above depending on the current height),
+    // and use that to estimate the current network height.
+    int medianHeight = height > CBlockIndex::nMedianTimeSpan ?
+            height - (1 + ((CBlockIndex::nMedianTimeSpan - 1) / 2)) :
+            height / 2;
+    double checkpointSpacing = medianHeight > heightLastCheckpoint ?
+            (double (tipmediantime - timeLastCheckpoint)) / (medianHeight - heightLastCheckpoint) :
+            (double (timeLastCheckpoint - genesisTime)) / heightLastCheckpoint;
+    double averageSpacing = (targetSpacing + checkpointSpacing) / 2;
+    int netheight = medianHeight + ((GetTime() - tipmediantime) / averageSpacing);
+    // Round to nearest ten to reduce noise
+    return ((netheight + 5) / 10) * 10;
+}
+
+int EstimateNetHeight(int height, int64_t tipmediantime, CChainParams chainParams)
+{
+    auto checkpointData = chainParams.Checkpoints();
+    return EstimateNetHeightInner(
+        height, tipmediantime,
+        Checkpoints::GetTotalBlocksEstimate(checkpointData),
+        checkpointData.nTimeLastCheckpoint,
+        chainParams.GenesisBlock().nTime,
+        chainParams.GetConsensus().nPowTargetSpacing);
 }
 
 void TriggerRefresh()
@@ -101,6 +174,11 @@ static bool metrics_ThreadSafeMessageBox(const std::string& message,
     return false;
 }
 
+static bool metrics_ThreadSafeQuestion(const std::string& /* ignored interactive message */, const std::string& message, const std::string& caption, unsigned int style)
+{
+    return metrics_ThreadSafeMessageBox(message, caption, style);
+}
+
 static void metrics_InitMessage(const std::string& message)
 {
     *initMessage = message;
@@ -110,20 +188,46 @@ void ConnectMetricsScreen()
 {
     uiInterface.ThreadSafeMessageBox.disconnect_all_slots();
     uiInterface.ThreadSafeMessageBox.connect(metrics_ThreadSafeMessageBox);
+    uiInterface.ThreadSafeQuestion.disconnect_all_slots();
+    uiInterface.ThreadSafeQuestion.connect(metrics_ThreadSafeQuestion);
     uiInterface.InitMessage.disconnect_all_slots();
     uiInterface.InitMessage.connect(metrics_InitMessage);
 }
 
-int printNetworkStats()
+int printStats(bool mining)
 {
-    LOCK2(cs_main, cs_vNodes);
+    // Number of lines that are always displayed
+    int lines = 4;
 
-    std::cout << "           " << _("Block height") << " | " << chainActive.Height() << std::endl;
-    std::cout << "  " << _("Network solution rate") << " | " << GetNetworkHashPS(120, -1) << " Sol/s" << std::endl;
-    std::cout << "            " << _("Connections") << " | " << vNodes.size() << std::endl;
+    int height;
+    int64_t tipmediantime;
+    size_t connections;
+    int64_t netsolps;
+    {
+        LOCK2(cs_main, cs_vNodes);
+        height = chainActive.Height();
+        tipmediantime = chainActive.Tip()->GetMedianTimePast();
+        connections = vNodes.size();
+        netsolps = GetNetworkHashPS(120, -1);
+    }
+    auto localsolps = GetLocalSolPS();
+
+    if (IsInitialBlockDownload()) {
+        int netheight = EstimateNetHeight(height, tipmediantime, Params());
+        int downloadPercent = height * 100 / netheight;
+        std::cout << "     " << _("Downloading blocks") << " | " << height << " / ~" << netheight << " (" << downloadPercent << "%)" << std::endl;
+    } else {
+        std::cout << "           " << _("Block height") << " | " << height << std::endl;
+    }
+    std::cout << "            " << _("Connections") << " | " << connections << std::endl;
+    std::cout << "  " << _("Network solution rate") << " | " << netsolps << " Sol/s" << std::endl;
+    if (mining && miningTimer.running()) {
+        std::cout << "    " << _("Local solution rate") << " | " << strprintf("%.4f Sol/s", localsolps) << std::endl;
+        lines++;
+    }
     std::cout << std::endl;
 
-    return 4;
+    return lines;
 }
 
 int printMiningStatus(bool mining)
@@ -133,16 +237,24 @@ int printMiningStatus(bool mining)
     int lines = 1;
 
     if (mining) {
-        int nThreads = GetArg("-genproclimit", 1);
-        if (nThreads < 0) {
-            // In regtest threads defaults to 1
-            if (Params().DefaultMinerThreads())
-                nThreads = Params().DefaultMinerThreads();
-            else
-                nThreads = boost::thread::hardware_concurrency();
+        auto nThreads = miningTimer.threadCount();
+        if (nThreads > 0) {
+            std::cout << strprintf(_("You are mining with the %s solver on %d threads."),
+                                   GetArg("-equihashsolver", "default"), nThreads) << std::endl;
+        } else {
+            bool fvNodesEmpty;
+            {
+                LOCK(cs_vNodes);
+                fvNodesEmpty = vNodes.empty();
+            }
+            if (fvNodesEmpty) {
+                std::cout << _("Mining is paused while waiting for connections.") << std::endl;
+            } else if (IsInitialBlockDownload()) {
+                std::cout << _("Mining is paused while downloading blocks.") << std::endl;
+            } else {
+                std::cout << _("Mining is paused (a JoinSplit may be in progress).") << std::endl;
+            }
         }
-        std::cout << strprintf(_("You are mining with the %s solver on %d threads."),
-                               GetArg("-equihashsolver", "default"), nThreads) << std::endl;
         lines++;
     } else {
         std::cout << _("You are currently not mining.") << std::endl;
@@ -194,11 +306,8 @@ int printMetrics(size_t cols, bool mining)
     }
 
     if (mining && loaded) {
-        double solps = GetLocalSolPS_INTERNAL(uptime);
-        std::string strSolps = strprintf("%.4f Sol/s", solps);
-        std::cout << "- " << strprintf(_("You have contributed %s on average to the network solution rate."), strSolps) << std::endl;
         std::cout << "- " << strprintf(_("You have completed %d Equihash solver runs."), ehSolverRuns.get()) << std::endl;
-        lines += 2;
+        lines++;
 
         int mined = 0;
         int orphaned = 0;
@@ -264,20 +373,19 @@ int printMessageBox(size_t cols)
     int lines = 2 + u->size();
     std::cout << _("Messages:") << std::endl;
     for (auto it = u->cbegin(); it != u->cend(); ++it) {
-        std::cout << *it << std::endl;
+        auto msg = FormatParagraph(*it, cols, 2);
+        std::cout << "- " << msg << std::endl;
         // Handle newlines and wrapped lines
         size_t i = 0;
         size_t j = 0;
-        while (j < it->size()) {
-            i = it->find('\n', j);
+        while (j < msg.size()) {
+            i = msg.find('\n', j);
             if (i == std::string::npos) {
-                i = it->size();
+                i = msg.size();
             } else {
                 // Newline
                 lines++;
             }
-            // Wrapped lines
-            lines += ((i-j) / cols);
             j = i + 1;
         }
     }
@@ -323,6 +431,9 @@ void ThreadShowMetricsScreen()
         // Thank you text
         std::cout << _("Thank you for running a Zcash node!") << std::endl;
         std::cout << _("You're helping to strengthen the network and contributing to a social good :)") << std::endl;
+
+        // Privacy notice text
+        std::cout << PrivacyInfo();
         std::cout << std::endl;
     }
 
@@ -353,9 +464,9 @@ void ThreadShowMetricsScreen()
 #endif
 
         if (loaded) {
-            lines += printNetworkStats();
+            lines += printStats(mining);
+            lines += printMiningStatus(mining);
         }
-        lines += printMiningStatus(mining);
         lines += printMetrics(cols, mining);
         lines += printMessageBox(cols);
         lines += printInitMessage();

@@ -5,8 +5,13 @@
 
 
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import *
-from time import *
+from test_framework.authproxy import JSONRPCException
+from test_framework.util import assert_equal, initialize_chain_clean, \
+    start_nodes, connect_nodes_bi
+
+import sys
+import time
+from decimal import Decimal
 
 class WalletProtectCoinbaseTest (BitcoinTestFramework):
 
@@ -35,7 +40,7 @@ class WalletProtectCoinbaseTest (BitcoinTestFramework):
         for x in xrange(1, timeout):
             results = self.nodes[0].z_getoperationresult(opids)
             if len(results)==0:
-                sleep(1)
+                time.sleep(1)
             else:
                 status = results[0]["status"]
                 if status == "failed":
@@ -94,7 +99,7 @@ class WalletProtectCoinbaseTest (BitcoinTestFramework):
         for x in xrange(1, timeout):
             results = self.nodes[0].z_getoperationresult(opids)
             if len(results)==0:
-                sleep(1)
+                time.sleep(1)
             else:
                 status = results[0]["status"]
                 errorString = results[0]["error"]["message"]
@@ -181,7 +186,7 @@ class WalletProtectCoinbaseTest (BitcoinTestFramework):
         amount = Decimal('10.0') - Decimal('0.00010000') - Decimal('0.00000001')    # this leaves change at 1 zatoshi less than dust threshold
         recipients.append({"address":self.nodes[0].getnewaddress(), "amount":amount })
         myopid = self.nodes[0].z_sendmany(mytaddr, recipients)
-        self.wait_and_assert_operationid_status(myopid, "failed", "Insufficient transparent funds, have 10.00, need 0.00000545 more to avoid creating invalid change output 0.00000001 (dust threshold is 0.00000546)")
+        self.wait_and_assert_operationid_status(myopid, "failed", "Insufficient transparent funds, have 10.00, need 0.00000053 more to avoid creating invalid change output 0.00000001 (dust threshold is 0.00000054)")
 
         # Send will fail because send amount is too big, even when including coinbase utxos
         errorString = ""

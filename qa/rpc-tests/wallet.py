@@ -5,8 +5,13 @@
 
 
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import *
-from time import *
+from test_framework.authproxy import JSONRPCException
+from test_framework.util import assert_equal, assert_greater_than, \
+    initialize_chain_clean, start_nodes, start_node, connect_nodes_bi, \
+    stop_nodes, sync_blocks, sync_mempools, wait_bitcoinds
+
+import time
+from decimal import Decimal
 
 class WalletTest (BitcoinTestFramework):
 
@@ -67,14 +72,26 @@ class WalletTest (BitcoinTestFramework):
         assert_equal(self.nodes[2].getbalance("*"), 21)
 
         # Node0 should have three unspent outputs.
-        # Create a couple of transactions to send them to node2, submit them through 
-        # node1, and make sure both node0 and node2 pick them up properly: 
+        # Create a couple of transactions to send them to node2, submit them through
+        # node1, and make sure both node0 and node2 pick them up properly:
         node0utxos = self.nodes[0].listunspent(1)
         assert_equal(len(node0utxos), 3)
 
+        # Check 'generated' field of listunspent
+        # Node 0: has one coinbase utxo and two regular utxos
+        assert_equal(sum(int(uxto["generated"] is True) for uxto in node0utxos), 1)
+        # Node 1: has 101 coinbase utxos and no regular utxos
+        node1utxos = self.nodes[1].listunspent(1)
+        assert_equal(len(node1utxos), 101)
+        assert_equal(sum(int(uxto["generated"] is True) for uxto in node1utxos), 101)
+        # Node 2: has no coinbase utxos and two regular utxos
+        node2utxos = self.nodes[2].listunspent(1)
+        assert_equal(len(node2utxos), 2)
+        assert_equal(sum(int(uxto["generated"] is True) for uxto in node2utxos), 0)
+
         # create both transactions
         txns_to_send = []
-        for utxo in node0utxos: 
+        for utxo in node0utxos:
             inputs = []
             outputs = {}
             inputs.append({ "txid" : utxo["txid"], "vout" : utxo["vout"]})
@@ -100,7 +117,7 @@ class WalletTest (BitcoinTestFramework):
         # Send 10 BTC normal
         address = self.nodes[0].getnewaddress("")
         self.nodes[2].settxfee(Decimal('0.001'))
-        txid = self.nodes[2].sendtoaddress(address, 10, "", "", False)
+        self.nodes[2].sendtoaddress(address, 10, "", "", False)
         self.sync_all()
         self.nodes[2].generate(1)
         self.sync_all()
@@ -110,7 +127,7 @@ class WalletTest (BitcoinTestFramework):
         assert_equal(self.nodes[0].getbalance("*"), Decimal('10.00000000'))
 
         # Send 10 BTC with subtract fee from amount
-        txid = self.nodes[2].sendtoaddress(address, 10, "", "", True)
+        self.nodes[2].sendtoaddress(address, 10, "", "", True)
         self.sync_all()
         self.nodes[2].generate(1)
         self.sync_all()
@@ -120,7 +137,7 @@ class WalletTest (BitcoinTestFramework):
         assert_equal(self.nodes[0].getbalance("*"), Decimal('19.99900000'))
 
         # Sendmany 10 BTC
-        txid = self.nodes[2].sendmany("", {address: 10}, 0, "", [])
+        self.nodes[2].sendmany("", {address: 10}, 0, "", [])
         self.sync_all()
         self.nodes[2].generate(1)
         self.sync_all()
@@ -130,7 +147,7 @@ class WalletTest (BitcoinTestFramework):
         assert_equal(self.nodes[0].getbalance("*"), Decimal('29.99900000'))
 
         # Sendmany 10 BTC with subtract fee from amount
-        txid = self.nodes[2].sendmany("", {address: 10}, 0, "", [address])
+        self.nodes[2].sendmany("", {address: 10}, 0, "", [address])
         self.sync_all()
         self.nodes[2].generate(1)
         self.sync_all()
@@ -159,7 +176,7 @@ class WalletTest (BitcoinTestFramework):
 
         #check if we can list zero value tx as available coins
         #1. create rawtx
-        #2. hex-changed one output to 0.0 
+        #2. hex-changed one output to 0.0
         #3. sign and send
         #4. check if recipient (node0) can list the zero value tx
         usp = self.nodes[1].listunspent()
@@ -171,7 +188,7 @@ class WalletTest (BitcoinTestFramework):
         signedRawTx = self.nodes[1].signrawtransaction(rawTx)
         decRawTx = self.nodes[1].decoderawtransaction(signedRawTx['hex'])
         zeroValueTxid= decRawTx['txid']
-        sendResp = self.nodes[1].sendrawtransaction(signedRawTx['hex'])
+        self.nodes[1].sendrawtransaction(signedRawTx['hex'])
 
         self.sync_all()
         self.nodes[1].generate(1) #mine a block
@@ -238,7 +255,7 @@ class WalletTest (BitcoinTestFramework):
         self.sync_all()
 
         mybalance = self.nodes[2].z_getbalance(mytaddr)
-        assert_equal(self.nodes[2].z_getbalance(mytaddr), Decimal('10.0'));
+        assert_equal(mybalance, Decimal('10.0'));
 
         mytxdetails = self.nodes[2].gettransaction(mytxid)
         myvjoinsplits = mytxdetails["vjoinsplit"]
@@ -306,7 +323,7 @@ class WalletTest (BitcoinTestFramework):
         for x in xrange(1, timeout):
             results = self.nodes[2].z_getoperationresult(opids)
             if len(results)==0:
-                sleep(1)
+                time.sleep(1)
             else:
                 status = results[0]["status"]
                 mytxid = results[0]["result"]["txid"]
@@ -363,7 +380,7 @@ class WalletTest (BitcoinTestFramework):
         for x in xrange(1, timeout):
             results = self.nodes[2].z_getoperationresult(opids)
             if len(results)==0:
-                sleep(1)
+                time.sleep(1)
             else:
                 status = results[0]["status"]
                 break
@@ -379,6 +396,38 @@ class WalletTest (BitcoinTestFramework):
         assert_equal(Decimal(self.nodes[0].getbalance("*")), node0balance)
         assert_equal(Decimal(self.nodes[2].getbalance()), node2balance)
         assert_equal(Decimal(self.nodes[2].getbalance("*")), node2balance)
+
+        #send a tx with value in a string (PR#6380 +)
+        txId  = self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(), "2")
+        txObj = self.nodes[0].gettransaction(txId)
+        assert_equal(txObj['amount'], Decimal('-2.00000000'))
+
+        txId  = self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(), "0.0001")
+        txObj = self.nodes[0].gettransaction(txId)
+        assert_equal(txObj['amount'], Decimal('-0.00010000'))
+
+        #check if JSON parser can handle scientific notation in strings
+        txId  = self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(), "1e-4")
+        txObj = self.nodes[0].gettransaction(txId)
+        assert_equal(txObj['amount'], Decimal('-0.00010000'))
+
+        #this should fail
+        errorString = ""
+        try:
+            txId  = self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(), "1f-4")
+        except JSONRPCException,e:
+            errorString = e.error['message']
+
+        assert_equal("Invalid amount" in errorString, True);
+
+        errorString = ""
+        try:
+            self.nodes[0].generate("2") #use a string to as block amount parameter must fail because it's not interpreted as amount
+        except JSONRPCException,e:
+            errorString = e.error['message']
+
+        assert_equal("not an integer" in errorString, True);
+
 
 if __name__ == '__main__':
     WalletTest ().main ()

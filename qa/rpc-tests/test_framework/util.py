@@ -21,8 +21,7 @@ import subprocess
 import time
 import re
 
-from authproxy import AuthServiceProxy, JSONRPCException
-from util import *
+from authproxy import AuthServiceProxy
 
 def p2p_port(n):
     return 11000 + n + os.getpid()%999
@@ -83,6 +82,7 @@ def initialize_datadir(dirname, n):
         f.write("rpcpassword=rt\n");
         f.write("port="+str(p2p_port(n))+"\n");
         f.write("rpcport="+str(rpc_port(n))+"\n");
+        f.write("listenonion=0\n");
     return datadir
 
 def initialize_chain(test_dir):
@@ -152,7 +152,7 @@ def initialize_chain_clean(test_dir, num_nodes):
     Useful if a test case wants complete control over initialization.
     """
     for i in range(num_nodes):
-        datadir=initialize_datadir(test_dir, i)
+        initialize_datadir(test_dir, i)
 
 
 def _rpchost_to_args(rpchost):

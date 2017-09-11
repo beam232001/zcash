@@ -11,6 +11,7 @@ export BITCOIND=${REAL_BITCOIND}
 #Run the tests
 
 testScripts=(
+    'prioritisetransaction.py'
     'wallet_treestate.py'
     'wallet_protectcoinbase.py'
     'wallet.py'
@@ -25,19 +26,25 @@ testScripts=(
     'rest.py'
     'mempool_spendcoinbase.py'
     'mempool_coinbase_spends.py'
+    'mempool_tx_input_limit.py'
     'httpbasics.py'
     'zapwallettxes.py'
     'proxy_test.py'
     'merkle_blocks.py'
+    'fundrawtransaction.py'
     'signrawtransactions.py'
     'walletbackup.py'
+    'nodehandling.py'
+    'reindex.py'
+    'decodescript.py'
+    'disablewallet.py'
     'zcjoinsplit.py'
     'zcjoinsplitdoublespend.py'
     'getblocktemplate.py'
+    'bip65-cltv-p2p.py'
+    'bipdersig-p2p.py'
 );
 testScriptsExt=(
-    'bipdersig-p2p.py'
-    'bipdersig.py'
     'getblocktemplate_longpoll.py'
     'getblocktemplate_proposals.py'
     'pruning.py'
@@ -46,19 +53,21 @@ testScriptsExt=(
     'invalidateblock.py'
     'keypool.py'
     'receivedby.py'
-    'reindex.py'
     'rpcbind_test.py'
 #   'script_test.py'
     'smartfees.py'
     'maxblocksinflight.py'
     'invalidblockrequest.py'
-    'rawtransactions.py'
 #    'forknotify.py'
     'p2p-acceptblock.py'
 );
 
 if [ "x$ENABLE_ZMQ" = "x1" ]; then
   testScripts+=('zmq_test.py')
+fi
+
+if [ "x$ENABLE_PROTON" = "x1" ]; then
+  testScripts+=('proton_test.py')
 fi
 
 extArg="-extended"

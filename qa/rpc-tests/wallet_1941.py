@@ -6,10 +6,12 @@
 # This is a regression test for #1941.
 
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import *
-from time import *
+from test_framework.util import assert_equal, initialize_chain_clean, \
+    initialize_datadir, start_nodes, start_node, connect_nodes_bi, \
+    bitcoind_processes
 
-import sys
+import time
+from decimal import Decimal
 
 starttime = 1388534400
 
@@ -31,6 +33,14 @@ class Wallet1941RegressionTest (BitcoinTestFramework):
         connect_nodes_bi(self.nodes,0,1)
         self.sync_all()
 
+    def restart_second_node(self, extra_args=[]):
+        self.nodes[1].stop()
+        bitcoind_processes[1].wait()
+        self.nodes[1] = start_node(1, self.options.tmpdir, extra_args=['-regtestprotectcoinbase','-debug=zrpc'] + extra_args)
+        self.nodes[1].setmocktime(starttime + 9000)
+        connect_nodes_bi(self.nodes, 0, 1)
+        self.sync_all()
+
     def wait_and_assert_operationid_status(self, myopid, in_status='success', in_errormsg=None):
         print('waiting for async operation {}'.format(myopid))
         opids = []
@@ -41,7 +51,7 @@ class Wallet1941RegressionTest (BitcoinTestFramework):
         for x in xrange(1, timeout):
             results = self.nodes[0].z_getoperationresult(opids)
             if len(results)==0:
-                sleep(1)
+                time.sleep(1)
             else:
                 status = results[0]["status"]
                 if status == "failed":
@@ -93,8 +103,17 @@ class Wallet1941RegressionTest (BitcoinTestFramework):
         self.nodes[1].generate(101)
         self.sync_all()
 
-        # Import the key on node 1.
-        self.nodes[1].z_importkey(key)
+        # Import the key on node 1, only scanning the last few blocks.
+        # (uses 'true' to test boolean fallback)
+        self.nodes[1].z_importkey(key, 'true', self.nodes[1].getblockchaininfo()['blocks'] - 100)
+
+        # Confirm that the balance on node 1 is zero, as we have not
+        # rescanned over the older transactions
+        resp = self.nodes[1].z_getbalance(myzaddr)
+        assert_equal(Decimal(resp), 0)
+
+        # Re-import the key on node 1, scanning from before the transaction.
+        self.nodes[1].z_importkey(key, 'yes', self.nodes[1].getblockchaininfo()['blocks'] - 110)
 
         # Confirm that the balance on node 1 is valid now (node 1 must
         # have rescanned)
