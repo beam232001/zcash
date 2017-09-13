@@ -59,6 +59,7 @@ ln -s /usr/bin/gcc aarch64-unknown-linux-gnu-gcc
 ln -s /usr/bin/nm aarch64-unknown-linux-gnu-nm 
 ln -s /usr/bin/ranlib aarch64-unknown-linux-gnu-ranlib 
 ln -s /usr/bin/strip aarch64-unknown-linux-gnu-strip 
+export PATH=$PATH:~/bin  # run this export before each build or add to .bashrc
 ```
 
 
@@ -70,7 +71,7 @@ code are replaced by the following 2 commands:
 
 ```
 git clone https://github.com/radix42/zcash.git
-git checkout v1.0.3-arm
+git checkout v1.0.11-arm
 ```
 
 This was a volunteer effort, it's open source code, I'm not an employee of ZcashCo,
