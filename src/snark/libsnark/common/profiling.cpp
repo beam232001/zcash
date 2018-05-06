@@ -28,14 +28,14 @@
 
 namespace libsnark {
 
-int64_t get_nsec_time()
+long long get_nsec_time()
 {
     auto timepoint = std::chrono::high_resolution_clock::now();
     return std::chrono::duration_cast<std::chrono::nanoseconds>(timepoint.time_since_epoch()).count();
 }
 
 /* Return total CPU time consumed by all threads of the process, in nanoseconds. */
-int64_t get_nsec_cpu_time()
+long long get_nsec_cpu_time()
 {
     ::timespec ts;
     if ( ::clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &ts) )
@@ -45,8 +45,8 @@ int64_t get_nsec_cpu_time()
     return ts.tv_sec * 1000000000ll + ts.tv_nsec;
 }
 
-int64_t start_time, last_time;
-int64_t start_cpu_time, last_cpu_time;
+long long start_time, last_time;
+long long start_cpu_time, last_cpu_time;
 
 void start_profiling()
 {

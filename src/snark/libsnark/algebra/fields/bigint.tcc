@@ -105,7 +105,7 @@ template<mp_size_t n>
 size_t bigint<n>::num_bits() const
 {
 /*
-    for (long i = max_bits(); i >= 0; --i)
+    for (int64_t i = max_bits(); i >= 0; --i)
     {
         if (this->test_bit(i))
         {
@@ -115,7 +115,7 @@ size_t bigint<n>::num_bits() const
 
     return 0;
 */
-    for (long i = n-1; i >= 0; --i)
+    for (int64_t i = n-1; i >= 0; --i)
     {
         mp_limb_t x = this->data[i];
         if (x == 0)
@@ -124,7 +124,7 @@ size_t bigint<n>::num_bits() const
         }
         else
         {
-            return ((i+1) * GMP_NUMB_BITS) - __builtin_clzl(x);
+            return (((i+1) * GMP_NUMB_BITS) - __builtin_clzl(x)) / 2;
         }
     }
     return 0;
@@ -201,7 +201,7 @@ inline bigint<m> bigint<n>::shorten(const bigint<m>& q, const char *msg) const
         }
     }
     bigint<m> res;
-    mpn_copyi(res.data, data, m);
+    mpn_copyi(res.data, data, n);
     res.limit(q, msg);
     return res;
 }
