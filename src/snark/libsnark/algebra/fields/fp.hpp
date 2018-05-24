@@ -107,7 +107,7 @@ public:
     Fp_model inverse() const;
     Fp_model sqrt() const; // HAS TO BE A SQUARE (else does not terminate)
 
-    Fp_model operator^(const unsigned long long pow) const;
+    Fp_model operator^(const uint64_t pow) const;
     template<mp_size_t m>
     Fp_model operator^(const bigint<m> &pow) const;
 
@@ -125,19 +125,19 @@ public:
 
 #ifdef PROFILE_OP_COUNTS
 template<mp_size_t n, const bigint<n>& modulus>
-long long Fp_model<n, modulus>::add_cnt = 0;
+int64_t Fp_model<n, modulus>::add_cnt = 0;
 
 template<mp_size_t n, const bigint<n>& modulus>
-long long Fp_model<n, modulus>::sub_cnt = 0;
+int64_t Fp_model<n, modulus>::sub_cnt = 0;
 
 template<mp_size_t n, const bigint<n>& modulus>
-long long Fp_model<n, modulus>::mul_cnt = 0;
+int64_t Fp_model<n, modulus>::mul_cnt = 0;
 
 template<mp_size_t n, const bigint<n>& modulus>
-long long Fp_model<n, modulus>::sqr_cnt = 0;
+int64_t Fp_model<n, modulus>::sqr_cnt = 0;
 
 template<mp_size_t n, const bigint<n>& modulus>
-long long Fp_model<n, modulus>::inv_cnt = 0;
+int64_t Fp_model<n, modulus>::inv_cnt = 0;
 #endif
 
 template<mp_size_t n, const bigint<n>& modulus>

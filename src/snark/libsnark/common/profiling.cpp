@@ -28,14 +28,14 @@
 
 namespace libsnark {
 
-long long get_nsec_time()
+int64_t get_nsec_time()
 {
     auto timepoint = std::chrono::high_resolution_clock::now();
     return std::chrono::duration_cast<std::chrono::nanoseconds>(timepoint.time_since_epoch()).count();
 }
 
 /* Return total CPU time consumed by all threads of the process, in nanoseconds. */
-long long get_nsec_cpu_time()
+int64_t get_nsec_cpu_time()
 {
     ::timespec ts;
     if ( ::clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &ts) )
@@ -45,8 +45,10 @@ long long get_nsec_cpu_time()
     return ts.tv_sec * 1000000000ll + ts.tv_nsec;
 }
 
-long long start_time, last_time;
-long long start_cpu_time, last_cpu_time;
+static int64_t start_time;
+static int64_t last_time;
+static int64_t start_cpu_time;
+static int64_t last_cpu_time;
 
 void start_profiling()
 {
@@ -57,20 +59,20 @@ void start_profiling()
 }
 
 std::map<std::string, size_t> invocation_counts;
-std::map<std::string, int64_t> enter_times;
+static std::map<std::string, int64_t> enter_times;
 std::map<std::string, int64_t> last_times;
 std::map<std::string, int64_t> cumulative_times;
 //TODO: Instead of analogous maps for time and cpu_time, use a single struct-valued map
-std::map<std::string, int64_t> enter_cpu_times;
-std::map<std::string, int64_t> last_cpu_times;
-std::map<std::pair<std::string, std::string>, int64_t> op_counts;
-std::map<std::pair<std::string, std::string>, int64_t> cumulative_op_counts; // ((msg, data_point), value)
+static std::map<std::string, int64_t> enter_cpu_times;
+static std::map<std::string, int64_t> last_cpu_times;
+static std::map<std::pair<std::string, std::string>, int64_t> op_counts;
+static std::map<std::pair<std::string, std::string>, int64_t> cumulative_op_counts; // ((msg, data_point), value)
     // TODO: Convert op_counts and cumulative_op_counts from pair to structs
-size_t indentation = 0;
+static size_t indentation = 0;
 
-std::vector<std::string> block_names;
+static std::vector<std::string> block_names;
 
-std::list<std::pair<std::string, int64_t*> > op_data_points = {
+static std::list<std::pair<std::string, int64_t*> > op_data_points = {
 #ifdef PROFILE_OP_COUNTS
     std::make_pair("Fradd", &Fr<default_ec_pp>::add_cnt),
     std::make_pair("Frsub", &Fr<default_ec_pp>::sub_cnt),
