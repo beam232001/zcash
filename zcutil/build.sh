@@ -33,7 +33,15 @@ if [[ -z "${HOST-}" ]]; then
     HOST="$BUILD"
 fi
 
-# Allow users to set arbitary compile flags. Most users will not need this.
+# Allow override to $CC and $CXX for porters. Most users will not need it.
+if [[ -z "${CC-}" ]]; then
+    CC=gcc
+fi
+if [[ -z "${CXX-}" ]]; then
+    CXX=g++
+fi
+
+# Allow users to set arbitrary compile flags. Most users will not need this.
 if [[ -z "${CONFIGURE_FLAGS-}" ]]; then
     CONFIGURE_FLAGS=""
 fi
